@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
 <style id="app-style">
-:root{--bg:#f3f4f7;--card:#fff;--ink:#121826;--mute:#6b7385;--line:#e3e6ec;--nav:#0f1a2e;--acc:#ff5a1f;--acc2:#ffe8de;--win:#0e9f6e;--winbg:#e6f7f0;--warn:#b45309;--r:14px;--num:'Barlow Condensed','Noto Sans TC',sans-serif}
+:root{--bg:#f3f4f7;--card:#fff;--ink:#121826;--mute:#4f586c;--line:#d5d9e2;--nav:#0f1a2e;--acc:#ff5a1f;--acc2:#ffe8de;--win:#0e9f6e;--winbg:#e6f7f0;--warn:#b45309;--r:14px;--num:'Barlow Condensed','Noto Sans TC',sans-serif}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'Noto Sans TC',system-ui,sans-serif;font-size:15px;-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -61,8 +61,9 @@ button{cursor:pointer}
 .bcol{display:flex;flex-direction:column;width:210px}
 .bcol h4{margin:0 0 10px;font-size:13px;color:var(--mute);text-align:center;font-weight:700}
 .bmatches{display:flex;flex-direction:column;justify-content:space-around;flex:1;gap:12px}
-.mc{background:#fff;border:1px solid var(--line);border-radius:11px;overflow:hidden;position:relative;font-size:14px}
-.bcol:not(:last-child) .bmatches .mc::after{content:'';position:absolute;right:-35px;top:50%;width:34px;border-top:2px solid #d5d9e2}
+.mc{background:#fff;border:1px solid var(--line);border-radius:11px;position:relative;font-size:14px}
+.mc .mh{border-radius:10px 10px 0 0}.mc .mr:last-child{border-radius:0 0 10px 10px}
+.bcol:not(:last-child):not(.last) .bmatches .mc::after{content:'';position:absolute;right:-35px;top:50%;width:34px;border-top:2px solid #d5d9e2}
 .mc.click{cursor:pointer}
 .mc.click:hover{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc2)}
 .mh{display:flex;justify-content:space-between;gap:6px;font-size:11px;color:var(--mute);padding:4px 10px;background:#f7f8fa;border-bottom:1px solid var(--line)}
@@ -166,7 +167,11 @@ textarea.inp{min-height:150px;resize:vertical;line-height:1.6}
 .tv .panel{background:#131e33;border-radius:18px;padding:18px}
 .tv .panel h2{margin:0 0 12px;font-size:16px;color:#94a3b8;letter-spacing:1px}
 .tv table{font-size:20px}.tv th{background:transparent;color:#94a3b8;border-color:#24324d;font-size:14px}
-.tv td{border-color:#1c2a44}.tv td.pts{font-size:26px;color:#ffb38f}
+.tv td{border-color:#1c2a44;color:#fff}
+.tv .tblw{background:transparent;border-color:#24324d}
+.tv .plink{color:#fff;font-size:inherit}
+.tv td.rk{color:#94a3b8}.tv tr.q td.rk{color:#ff8a5c}
+.tv .gwrap h3{color:#fff}.tv td.pts{font-size:26px;color:#ffb38f}
 .tv .mc{background:#1a2740;border-color:#2a3a5a;color:#fff}.tv .mh{background:#15213a;border-color:#2a3a5a}
 .tv .mr+.mr{border-color:#24324d}.tv .mr.win{background:#11402f}
 .tv .bcol h4{color:#94a3b8}
@@ -184,6 +189,21 @@ textarea.inp{min-height:150px;resize:vertical;line-height:1.6}
  .two,.three{grid-template-columns:1fr 1fr}
  .thead h1{font-size:21px}
 }
+/* 字級：投影用大字 */
+body.fs-big .top,body.fs-big .wrap{zoom:1.3}
+body.fs-xl .top,body.fs-xl .wrap{zoom:1.6}
+@media(min-width:700px){body.fs-big .modal{zoom:1.25}body.fs-xl .modal{zoom:1.45}}
+body.fs-big .tv,body.fs-xl .tv{zoom:1.25}
+@media(min-width:1400px){body.fs-xl .tv{zoom:1.5}}
+body.fs-big .mr,body.fs-xl .mr{padding:9px 12px}
+body.fs-big .mr .nm,body.fs-xl .mr .nm{font-weight:600}
+body.fs-big .mr.win,body.fs-xl .mr.win{background:#d3f2e4}
+body.fs-big .bcol:not(:last-child):not(.last) .bmatches .mc::after,body.fs-xl .bcol:not(:last-child):not(.last) .bmatches .mc::after{border-top:3px solid #aab2c2}
+body.fs-big .mc,body.fs-xl .mc{border-width:1.5px}
+body.fs-big td,body.fs-xl td{font-weight:500}
+.fsbtn{border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.08);color:#fff;border-radius:99px;padding:4px 12px;font-size:13px;font-weight:700;white-space:nowrap}
+.sync{margin-left:auto}
+.top .fsbtn{margin-left:8px}
 </style>
 </head>
 <body>
@@ -482,7 +502,12 @@ function go(view,tid,tab){ui.view=view;ui.tid=tid||null;ui.tab=tab||'bracket';ui
  render();window.scrollTo(0,0)}
 
 /* ---------- views ---------- */
-function topbar(){return '<div class="top"><button class="logo" data-act="home"><b>🏆</b>賽事大師</button><span id="sync" class="sync">連線中…</span></div>'}
+var FS=['fs-normal','fs-big','fs-xl'],FSL={'fs-normal':'標準','fs-big':'大字','fs-xl':'特大'},fs=null;
+try{fs=localStorage.getItem('tm-fs')}catch(e){}
+if(FS.indexOf(fs)<0)fs=window.innerWidth<700?'fs-normal':'fs-big';
+function applyFs(){FS.forEach(function(c){document.body.classList.toggle(c,c===fs)})}
+applyFs();
+function topbar(){return '<div class="top"><button class="logo" data-act="home"><b>🏆</b>賽事大師</button><span id="sync" class="sync">連線中…</span><button class="fsbtn" data-act="fs" title="切換字級">Aa '+FSL[fs]+'</button></div>'}
 function render(){
  cache.clear();
  var h=topbar()+'<div class="wrap">'+(ro()?'<div class="banner">'+(mode==='cloud'?'你正在觀看這個賽事，比分會自動更新。需要主辦人提供的「管理連結」才能修改。':'你目前是檢視模式：可以看賽程與積分，但修改不會被儲存。')+'</div>':'')+(ui.view==='t'&&T()?tView():(ui.view==='t'&&(mode==='loading'||loadingIds[ui.tid])?'<div class="empty"><div class="big">⏳</div>載入賽事中…</div>':home()))+'</div>';
@@ -521,7 +546,7 @@ function bracketCols(t,ms,labelFn){
  var rounds={};ms.forEach(function(m){var k=m.third?'x':m.round;(rounds[k]=rounds[k]||[]).push(m)});
  var keys=Object.keys(rounds).filter(function(k){return k!=='x'}).sort(function(a,b){return a-b});
  var h='<div class="bscroll"><div class="bracket">';
- keys.forEach(function(k){var list=rounds[k];h+='<div class="bcol"><h4>'+labelFn(list[0])+'</h4><div class="bmatches">'+list.map(function(m){return card(t,m)}).join('')+'</div></div>'});
+ keys.forEach(function(k,ki){var list=rounds[k];h+='<div class="bcol'+(ki===keys.length-1?' last':'')+'"><h4>'+labelFn(list[0])+'</h4><div class="bmatches">'+list.map(function(m){return card(t,m)}).join('')+'</div></div>'});
  if(rounds.x)h+='<div class="bcol"><h4>季軍戰</h4><div class="bmatches">'+rounds.x.map(function(m){return card(t,m)}).join('')+'</div></div>';
  return h+'</div></div>'}
 function vBracket(t){
@@ -756,7 +781,8 @@ var A={
    '<div class="mfoot"><button class="btn" data-act="close">關閉</button></div>')},
  copyLink:function(el){copy(el.dataset.u,'已複製連結')},
  tv:function(){ui.tv=true;renderTV();clearInterval(tvTimer);tvTimer=setInterval(function(){if(ui.tv){cache.clear();renderTV()}},20000);try{var p=document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();if(p&&p.catch)p.catch(function(){})}catch(e){}},
- tvClose:closeTV
+ tvClose:closeTV,
+ fs:function(){fs=FS[(FS.indexOf(fs)+1)%FS.length];try{localStorage.setItem('tm-fs',fs)}catch(e){}applyFs();render();toast('字級：'+FSL[fs])}
 };
 function copy(txt,msg){try{navigator.clipboard.writeText(txt).then(function(){toast(msg)},function(){fallbackCopy(txt)})}catch(e){fallbackCopy(txt)}}
 function fallbackCopy(txt){openModal('<h2>請手動複製</h2><textarea class="inp" readonly onclick="this.select()">'+esc(txt)+'</textarea><div class="mfoot"><button class="btn" data-act="close">關閉</button></div>')}

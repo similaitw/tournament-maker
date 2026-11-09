@@ -189,6 +189,20 @@ textarea.inp{min-height:150px;resize:vertical;line-height:1.6}
  .two,.three{grid-template-columns:1fr 1fr}
  .thead h1{font-size:21px}
 }
+/* 樹狀圖、多邊形圖 */
+.diag{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:16px}
+.dhead{display:flex;align-items:center;gap:8px;margin-bottom:8px}.dhead b{font-size:17px}.dhead .dtools{margin-left:auto;display:flex;gap:6px}
+.dscroll{overflow:auto;-webkit-overflow-scrolling:touch}.dscroll svg{display:block;margin:0 auto}
+.plegend{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-top:12px}
+.pround{background:#f7f8fa;border-radius:10px;padding:10px 12px}
+.prh{font-weight:800;margin-bottom:6px;display:flex;align-items:center;gap:6px}.prh i{width:12px;height:12px;border-radius:50%;display:inline-block}
+.pm{font-size:14px;padding:3px 0}.pm .psc{font-family:var(--num);font-weight:700;margin:0 4px}.pm .wn{font-weight:800}
+@media print{
+ body{background:#fff}body .top,body .wrap{zoom:1!important}
+ .top,.tabs,.thead,.champ,.banner,.dtools,.note,.toast,#tvov{display:none!important}
+ .diag{border:0;page-break-inside:avoid;break-inside:avoid}.dscroll{overflow:visible}.dscroll svg{max-width:100%;height:auto}
+ .wrap{padding:0;max-width:none}
+}
 /* 字級：投影用大字 */
 body.fs-big .top,body.fs-big .wrap{zoom:1.3}
 body.fs-xl .top,body.fs-xl .wrap{zoom:1.6}
@@ -541,16 +555,17 @@ function home(){
 function tabsFor(t){
  var b={se:'對戰樹',de:'對戰樹',rr:'對戰表',swiss:'配對',groups:'淘汰賽'}[t.format];
  var s={se:'排名',de:'排名',rr:'積分榜',swiss:'積分榜',groups:'分組積分'}[t.format];
- if(t.format==='groups')return[['standings',s],['bracket',b],['schedule','賽程'],['players','參賽者'],['settings','設定']];
- if(t.format==='rr'||t.format==='swiss')return[['standings',s],['bracket',b],['schedule','賽程'],['players','參賽者'],['settings','設定']];
- return[['bracket',b],['standings',s],['schedule','賽程'],['players','參賽者'],['settings','設定']]}
+ if(t.format==='groups')return[['standings',s],['bracket',b],['diagram','賽程圖'],['schedule','賽程'],['players','參賽者'],['settings','設定']];
+ if(t.format==='rr')return[['standings',s],['bracket',b],['diagram','多邊形圖'],['schedule','賽程'],['players','參賽者'],['settings','設定']];
+ if(t.format==='swiss')return[['standings',s],['bracket',b],['schedule','賽程'],['players','參賽者'],['settings','設定']];
+ return[['bracket',b],['diagram','樹狀圖'],['standings',s],['schedule','賽程'],['players','參賽者'],['settings','設定']]}
 function tView(){
  var t=T(),st=stats(t),ch=champion(t),tabs=tabsFor(t);
  if(!tabs.some(function(x){return x[0]===ui.tab}))ui.tab=tabs[0][0];
  var h='<div class="thead"><div style="flex:1;min-width:220px"><div class="row" style="margin-bottom:6px"><span class="chip acc">'+FMT[t.format]+'</span><span class="chip">'+esc(t.sport)+'</span><span class="chip">'+'參賽 '+t.participants.length+'</span></div><h1>'+esc(t.name)+'</h1><div class="muted" style="margin-top:4px">進度 '+st.done+' / '+st.tot+' 場</div><div class="bar" style="max-width:320px"><i style="width:'+(st.tot?Math.round(st.done/st.tot*100):0)+'%"></i></div></div><div class="row"><button class="btn" data-act="tv">📺 大螢幕</button><button class="btn" data-act="share">🔗 分享</button></div></div>';
  if(ch)h+='<div class="champ"><span class="tro">🏆</span><div><div class="muted">冠軍</div><b>'+pn(t,ch)+'</b></div></div>';
  h+='<div class="tabs">'+tabs.map(function(x){return '<button class="tab '+(ui.tab===x[0]?'on':'')+'" data-act="tab" data-tab="'+x[0]+'">'+x[1]+'</button>'}).join('')+'</div>';
- h+={bracket:vBracket,standings:vStandings,schedule:vSchedule,players:vPlayers,settings:vSettings}[ui.tab](t);
+ h+={bracket:vBracket,diagram:vDiagram,standings:vStandings,schedule:vSchedule,players:vPlayers,settings:vSettings}[ui.tab](t);
  return h}
 
 function schedTxt(t,m){var s=t.sched&&t.sched[m.id];if(!s||(!s.date&&!s.time&&!s.court))return '';var d=s.date?s.date.slice(5).replace('-','/'):'';return [d+(s.time?' '+s.time:''),s.court].filter(Boolean).join(' · ')}
@@ -643,6 +658,110 @@ function vSettings(t){
  '<div class="mfoot"><button class="btn pri" data-act="saveSettings">儲存設定</button></div></div>'+
  (mode==='cloud'?'<div class="sec-title">管理權限</div><div class="card"><div class="row" style="justify-content:space-between"><b>🔑 管理密碼</b>'+(HASPW[t.id]?'<span class="chip win">已設定</span>':'<span class="chip">未設定</span>')+'</div><div class="muted" style="margin-top:6px;line-height:1.6">設定後，任何人打開觀看連結、輸入這組密碼，就能在那台裝置管理此賽事（不需要傳管理連結）。</div><div class="two" style="margin-top:4px"><div><label class="f">'+(HASPW[t.id]?'新密碼':'密碼')+'（至少 4 個字）</label><input class="inp" type="password" id="pw1" autocomplete="new-password"></div><div><label class="f">再輸入一次</label><input class="inp" type="password" id="pw2" autocomplete="new-password"></div></div><div class="err" id="pwerr"></div><div class="row"><button class="btn pri" data-act="pwSet">'+(HASPW[t.id]?'更改密碼':'設定密碼')+'</button>'+(HASPW[t.id]?'<button class="btn danger" data-act="pwDel">移除密碼</button>':'')+'</div><div class="note">⚠️ 如果管理連結或密碼外流，可以按「重設管理權限」：舊的管理連結和密碼全部失效，只有這台裝置保留管理權限，之後再重新設定密碼。<div style="margin-top:8px"><button class="btn sm danger" data-act="rotate">重設管理權限</button></div></div></div>':'')+
  '<div class="sec-title">資料</div><div class="card"><div class="row"><button class="btn" data-act="export">📤 複製賽事資料（JSON）</button><button class="btn" data-act="rebuild">🔄 重新產生賽程</button><button class="btn danger" data-act="clearRes">清除所有比分</button><button class="btn danger" data-act="delT">刪除賽事</button></div><div class="note">「重新產生賽程」會依目前參賽者與種子序重排，並清除所有比分。</div></div>'}
+
+/* ---------- 樹狀圖與多邊形圖 ---------- */
+var ROUNDC=['#e8590c','#1c7ed6','#2f9e44','#ae3ec9','#8d5524','#0c8599','#c2255c','#5c940d','#4263eb','#343a40','#f59f00','#087f5b'];
+var treeDir='v';try{treeDir=localStorage.getItem('tm-tdir')||'v'}catch(e){}
+var WINC='#d62828',LINEC='#1f2937',SUBC='#6b7280',CODEC='#1c64f2';
+function treeBuild(t,root,stage){
+ var cd=codes(t);
+ function inStage(id){var m=byId(t,id);return m&&m.stage===stage&&!m.third&&!m.reset?m:null}
+ function leafOf(src){var v=res(t,src),sub='';
+  if(src.t!=='p')sub='#'+(cd[src.m]||'?')+(src.t==='L'?' 敗者':' 勝者');
+  return{leaf:true,pid:v,label:typeof v==='string'?pnText(t,v):null,sub:sub,drop:src.t!=='p',bye:v===null}}
+ function node(m){
+  var kids=[m.a,m.b].map(function(s){var mm=s.t==='W'?inStage(s.m):null;return mm?node(mm):leafOf(s)});
+  var o=outcome(t,m);
+  if(o.bye){var real=kids.filter(function(k){return !(k.leaf&&k.bye)});if(real.length===1)return real[0];if(!real.length)return{leaf:true,bye:true,pid:null,label:null,sub:''}}
+  return{m:m,kids:kids,o:o,r:validRes(t,m),code:cd[m.id]}}
+ return node(root)}
+function kidPid(k){return k.leaf?k.pid:k.o.w}
+function treeSVG(t,root,stage,opt){
+ opt=opt||{};var dir=treeDir,tr=treeBuild(t,root,stage);
+ if(tr.leaf)return '';
+ var leafN=0,maxX=0,leaves=[],nodes=[];
+ (function X(n){if(n.leaf)return 0;var mx=0;n.kids.forEach(function(k){mx=Math.max(mx,X(k))});n.x=mx+1;maxX=Math.max(maxX,n.x);return n.x})(tr);
+ (function Y(n,par){if(n.leaf){n.y=leafN++;n.x=n.drop&&par?par.x-1:0;leaves.push(n);return}n.kids.forEach(function(k){Y(k,n)});n.y=(n.kids[0].y+n.kids[n.kids.length-1].y)/2;nodes.push(n)})(tr,null);
+ var nameLen=leaves.reduce(function(a,l){return Math.max(a,(l.label||l.sub||'待定').replace(dir==='v'?/\s+/g:/$^/,'').length)},2);
+ var W,H,P,CW=120,RH=38,CS=48,LS=78,padL,padT;
+ if(dir==='h'){padL=Math.min(230,nameLen*16+24);padT=28;W=padL+(maxX+0.6)*CW+190;H=padT*2+(leafN-1)*RH+10;P=function(x,y){return[padL+x*CW,padT+y*RH]}}
+ else{var vchars=Math.min(8,nameLen);padL=36;padT=74;W=padL*2+(leafN-1)*CS;W=Math.max(W,260);H=padT+(maxX+0.6)*LS+vchars*18+34;P=function(x,y){return[padL+y*CS,padT+(maxX+0.6-x)*LS]}}
+ var out='',lab='',f='font-family="Noto Sans TC,Microsoft JhengHei,PingFang TC,sans-serif"';
+ var pth=function(pts,win){return '<path d="M'+pts.map(function(p){return p[0].toFixed(1)+' '+p[1].toFixed(1)}).join(' L')+'" fill="none" stroke="'+(win?WINC:LINEC)+'" stroke-width="'+(win?3.2:1.6)+'" stroke-linecap="square"/>'};
+ nodes.forEach(function(n){
+  n.kids.forEach(function(k,ki){var win=n.o.done&&n.o.w!==undefined&&n.o.w===kidPid(k)&&kidPid(k)!=null;
+   out+=pth([P(k.x,k.y),P(n.x,k.y),P(n.x,n.y)],win);
+   if(n.r){var sc=n.m&&sides(t,n.m)[0]===kidPid(k)?n.r.sa:n.r.sb,q=P(n.x,k.y);
+    if(dir==='h')lab+='<text x="'+(q[0]-7)+'" y="'+(q[1]+(ki===0?-6:16))+'" text-anchor="end" font-size="13" font-weight="700" fill="'+(win?WINC:SUBC)+'" '+f+'>'+esc(sc)+'</text>';
+    else lab+='<text x="'+(q[0]+(ki===0?-6:6))+'" y="'+(q[1]+30)+'" text-anchor="'+(ki===0?'end':'start')+'" font-size="13" font-weight="700" fill="'+(win?WINC:SUBC)+'" '+f+'>'+esc(sc)+'</text>'}});
+  var c=P(n.x,n.y),st=schedTxt(t,n.m);
+  if(dir==='h')lab+='<text x="'+(c[0]-7)+'" y="'+(c[1]+5)+'" text-anchor="end" font-size="13" font-weight="700" fill="'+CODEC+'" '+f+'><title>'+esc(roundLabel(t,n.m)+(st?' · '+st:''))+'</title>#'+n.code+'</text>';
+  else lab+='<text x="'+c[0]+'" y="'+(c[1]+17)+'" text-anchor="middle" font-size="13" font-weight="700" fill="'+CODEC+'" '+f+'><title>'+esc(roundLabel(t,n.m)+(st?' · '+st:''))+'</title>#'+n.code+'</text>'});
+ var champ=tr.o.done?tr.o.w:undefined,r0=P(tr.x,tr.y),r1=P(tr.x+0.6,tr.y);
+ out+=pth([r0,r1],champ!=null&&champ!==undefined);
+ var ctext=champ?((opt.top||'🏆 ')+pnText(t,champ)):(opt.topEmpty||'冠軍');
+ if(dir==='h')lab+='<text x="'+(r1[0]+8)+'" y="'+(r1[1]+6)+'" font-size="17" font-weight="900" fill="'+(champ?WINC:SUBC)+'" '+f+'>'+esc(ctext)+'</text>';
+ else lab+='<text x="'+r1[0]+'" y="'+(r1[1]-12)+'" text-anchor="middle" font-size="17" font-weight="900" fill="'+(champ?WINC:SUBC)+'" '+f+'>'+esc(ctext)+'</text>';
+ leaves.forEach(function(l){var p=P(l.x,l.y),txt=l.label||l.sub||(l.bye?'輪空':'待定'),col=l.label?LINEC:SUBC,tip=l.sub&&l.label?'<title>'+esc(l.sub)+'</title>':'';
+  if(dir==='h')lab+='<text x="'+(p[0]-7)+'" y="'+(p[1]+5)+'" text-anchor="end" font-size="'+(l.drop?13:15)+'" font-weight="'+(l.label?700:400)+'" fill="'+col+'" '+f+'>'+tip+esc(txt.length>12?txt.slice(0,12)+'…':txt)+'</text>';
+  else{var vt=txt.replace(/\s+/g,'');var ch=Array.from(vt.length>8?vt.slice(0,7)+'…':vt);lab+='<text text-anchor="middle" font-size="'+(l.drop?13:15)+'" font-weight="'+(l.label?700:400)+'" fill="'+col+'" '+f+'>'+tip+ch.map(function(c,i){return '<tspan x="'+p[0]+'" y="'+(p[1]+20+i*18)+'">'+esc(c)+'</tspan>'}).join('')+'</text>'}});
+ return '<svg xmlns="http://www.w3.org/2000/svg" width="'+Math.ceil(W)+'" height="'+Math.ceil(H)+'" viewBox="0 0 '+Math.ceil(W)+' '+Math.ceil(H)+'"><rect width="100%" height="100%" fill="#fff"/>'+out+lab+'</svg>'}
+function polySVG(t,ids,ms){
+ var n=ids.length,S=Math.max(480,Math.min(860,260+n*62)),c=S/2,R=c-115,cd=codes(t),f='font-family="Noto Sans TC,Microsoft JhengHei,PingFang TC,sans-serif"';
+ var P=ids.map(function(id,i){var a=-Math.PI/2+i*2*Math.PI/n;return[c+R*Math.cos(a),c+R*Math.sin(a),a]});
+ var idx={};ids.forEach(function(id,i){idx[id]=i});
+ var pairs={};ms.forEach(function(m){var a=idx[m.a.v],b=idx[m.b.v];if(a===undefined||b===undefined)return;var k=Math.min(a,b)+'-'+Math.max(a,b);(pairs[k]=pairs[k]||[]).push(m)});
+ var lines='',labels='';
+ var placed=[];Object.keys(pairs).sort(function(x,y){var a=x.split('-').map(Number),b=y.split('-').map(Number),da=Math.min(a[1]-a[0],n-(a[1]-a[0])),db=Math.min(b[1]-b[0],n-(b[1]-b[0]));return da-db}).forEach(function(k){var ij=k.split('-').map(Number),i=ij[0],j=ij[1],list=pairs[k],col=ROUNDC[(list[0].round-1)%ROUNDC.length],done=list.every(function(m){return outcome(t,m).done});
+  lines+='<line x1="'+P[i][0].toFixed(1)+'" y1="'+P[i][1].toFixed(1)+'" x2="'+P[j][0].toFixed(1)+'" y2="'+P[j][1].toFixed(1)+'" stroke="'+col+'" stroke-width="'+(done?3:2.2)+'"'+(done?'':' stroke-dasharray="7 5"')+'/>';
+  var txt=list.map(function(m){return '#'+cd[m.id]}).join('/'),w=txt.length*8.5+14;
+  var best=null,bestD=-1;
+  [0.5,0.38,0.62,0.3,0.7,0.44,0.56,0.24,0.76,0.33,0.67].forEach(function(tt){if(bestD>=999)return;
+   var x=P[i][0]+(P[j][0]-P[i][0])*tt,y=P[i][1]+(P[j][1]-P[i][1])*tt,dmin=999;
+   placed.forEach(function(q){var dx=Math.max(0,Math.abs(x-q[0])-(w+q[2])/2),dy=Math.max(0,Math.abs(y-q[1])-24);dmin=Math.min(dmin,Math.sqrt(dx*dx+dy*dy)+(dx>0||dy>0?0:-1))});
+   P.forEach(function(v){dmin=Math.min(dmin,Math.max(0,Math.hypot(x-v[0],y-v[1])-30))});
+   if(n%2===0&&n>2)dmin=Math.min(dmin,Math.max(0,Math.hypot(x-c,y-c)-(w/2+14)));
+   if(dmin>4){if(bestD<999){best=[x,y];bestD=999}}else if(dmin>bestD){best=[x,y];bestD=dmin}});
+  var lx=best[0],ly=best[1];placed.push([lx,ly,w]);
+  var tip=list.map(function(m){var s=sides(t,m),r=validRes(t,m);return roundLabel(t,m)+'：'+pnText(t,s[0])+' vs '+pnText(t,s[1])+(r?'（'+r.sa+':'+r.sb+'）':'')}).join('\n');
+  labels+='<g><title>'+esc(tip)+'</title><rect x="'+(lx-w/2).toFixed(1)+'" y="'+(ly-12).toFixed(1)+'" width="'+w.toFixed(1)+'" height="24" rx="12" fill="'+(done?col:'#fff')+'" stroke="'+col+'" stroke-width="2"/><text x="'+lx.toFixed(1)+'" y="'+(ly+5).toFixed(1)+'" text-anchor="middle" font-size="14" font-weight="800" fill="'+(done?'#fff':col)+'" '+f+'>'+txt+'</text></g>'});
+ var verts='';
+ ids.forEach(function(id,i){var p=P[i],a=p[2],cx=Math.cos(a),sy=Math.sin(a),nx=c+(R+30)*cx,ny=c+(R+30)*sy,anc=cx>0.3?'start':cx<-0.3?'end':'middle';
+  if(anc==='middle')ny+=sy>0?16:-4;else ny+=6;
+  var nm=pnText(t,id);if(nm.length>10)nm=nm.slice(0,9)+'…';
+  verts+='<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="17" fill="#0f1a2e"/><text x="'+p[0].toFixed(1)+'" y="'+(p[1]+5).toFixed(1)+'" text-anchor="middle" font-size="14" font-weight="800" fill="#fff" '+f+'>'+(i+1)+'</text><text x="'+nx.toFixed(1)+'" y="'+ny.toFixed(1)+'" text-anchor="'+anc+'" font-size="17" font-weight="800" fill="#111827" '+f+'>'+esc(nm)+'</text>'});
+ return '<svg xmlns="http://www.w3.org/2000/svg" width="'+S+'" height="'+S+'" viewBox="0 0 '+S+' '+S+'"><rect width="100%" height="100%" fill="#fff"/>'+lines+labels+verts+'</svg>'}
+function polyLegend(t,ms){
+ var rounds={};ms.forEach(function(m){(rounds[m.round]=rounds[m.round]||[]).push(m)});
+ return '<div class="plegend">'+Object.keys(rounds).sort(function(a,b){return a-b}).map(function(r){var col=ROUNDC[(r-1)%ROUNDC.length];
+  return '<div class="pround"><div class="prh"><i style="background:'+col+'"></i>第 '+r+' 輪</div>'+rounds[r].map(function(m){var s=sides(t,m),rr=validRes(t,m),o=outcome(t,m);
+   return '<div class="pm"><b style="color:'+col+'">#'+codes(t)[m.id]+'</b> <span class="'+(o.done&&o.w===s[0]?'wn':'')+'">'+pn(t,s[0])+'</span> <span class="psc">'+(rr?rr.sa+' : '+rr.sb:'vs')+'</span> <span class="'+(o.done&&o.w===s[1]?'wn':'')+'">'+pn(t,s[1])+'</span></div>'}).join('')+'</div>'}).join('')+'</div>'}
+function diagBlock(title,svg,extra){if(!svg)return '';return '<div class="diag"><div class="dhead"><b>'+title+'</b><span class="dtools">'+(mode!=='shared'?'<button class="btn sm" data-act="dlPng">下載 PNG</button><button class="btn sm" data-act="dlSvg">SVG</button>':'')+'</span></div><div class="dscroll">'+svg+'</div>'+(extra||'')+'</div>'}
+function vDiagram(t){
+ var tools='<div class="filters dtools">';
+ var isTree=t.format==='se'||t.format==='de'||(t.format==='groups'&&t.matches.some(function(m){return m.stage==='ko'}));
+ if(isTree)tools+='<span class="muted">樹狀圖方向</span><button class="fchip '+(treeDir==='v'?'on':'')+'" data-act="tdir" data-d="v">直式（由下往上）</button><button class="fchip '+(treeDir==='h'?'on':'')+'" data-act="tdir" data-d="h">橫式（由左往右）</button>';
+ if(mode!=='shared')tools+='<button class="btn sm" data-act="printDiag" style="margin-left:auto">🖨 列印</button>';
+ tools+='</div>';
+ var h=tools,root=function(stage){return t.matches.filter(function(m){return m.stage===stage&&!m.third&&!m.reset}).sort(function(a,b){return b.round-a.round})[0]};
+ var third=function(stage){return t.matches.find(function(m){return m.stage===stage&&m.third})};
+ var note='<div class="note">紅色粗線為勝出路線，藍色 #編號為場次（與賽程表相同），數字為比分。把滑鼠移到編號上可看輪次與時間。</div>';
+ if(t.format==='se'){h+=diagBlock('淘汰賽樹狀圖',treeSVG(t,root('main'),'main'));var th=third('main');if(th)h+=diagBlock('季軍戰',treeSVG(t,th,'main',{top:'🥉 ',topEmpty:'季軍'}));return h+note}
+ if(t.format==='de'){h+=diagBlock('勝部',treeSVG(t,root('wb'),'wb',{top:'勝部冠軍 ',topEmpty:'勝部冠軍'}))+diagBlock('敗部',treeSVG(t,root('lb'),'lb',{top:'敗部冠軍 ',topEmpty:'敗部冠軍'}))+diagBlock('總決賽',treeSVG(t,byId(t,'gf-1'),'gf'));
+  var g2=byId(t,'gf-2'),o2=g2?outcome(t,g2):{};if(g2&&!o2.skip&&playable(t,g2))h+='<div class="note">總決賽需要加賽一場（#'+codes(t)['gf-2']+'）'+(o2.done?'，冠軍：'+pn(t,o2.w):'')+'。</div>';
+  return h+note}
+ if(t.format==='rr'){var ids=t.participants.map(function(p){return p.id});
+  h+=diagBlock('循環賽多邊形圖',polySVG(t,ids,t.matches),polyLegend(t,t.matches));
+  return h+'<div class="note">每個頂點是一位參賽者，每條線代表一場比賽，線上的 #編號是場次，顏色代表輪次。虛線＝尚未比賽，實線＝已完成。</div>'}
+ if(t.format==='groups'){
+  t.groups.forEach(function(g){var gm=t.matches.filter(function(m){return m.group===g.name});h+=diagBlock(g.name+' 組多邊形圖',polySVG(t,g.ids,gm),polyLegend(t,gm))});
+  var k=root('ko');if(k){h+=diagBlock('淘汰賽樹狀圖',treeSVG(t,k,'ko'));var th2=third('ko');if(th2)h+=diagBlock('季軍戰',treeSVG(t,th2,'ko',{top:'🥉 ',topEmpty:'季軍'}))}
+  else h+='<div class="note">分組賽結束、產生淘汰賽後，這裡會出現淘汰賽樹狀圖。</div>';
+  return h+'<div class="note">多邊形圖：每個頂點是一位參賽者，每條線代表一場比賽，線上的 #編號是場次，顏色代表輪次；虛線＝尚未比賽。</div>'}
+ return '<div class="empty">此賽制沒有樹狀圖</div>'}
+function svgText(svg){var c=svg.cloneNode(true);c.setAttribute('xmlns','http://www.w3.org/2000/svg');return '<?xml version="1.0" encoding="UTF-8"?>\n'+new XMLSerializer().serializeToString(c)}
+function dlBlob(name,blob){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000)}
+function diagName(el){var d=el.closest('.diag');return (T().name+'-'+d.querySelector('.dhead b').textContent).replace(/[\\/:*?"<>|｜]/g,'_')}
 
 /* ---------- modals ---------- */
 function openModal(html){var keep=modalCtx;closeModal();modalCtx=keep;var ov=document.createElement('div');ov.className='ov';ov.id='ov';ov.innerHTML='<div class="modal">'+html+'</div>';ov.addEventListener('click',function(e){if(e.target===ov)closeModal()});document.body.appendChild(ov)}
@@ -801,6 +920,10 @@ var A={
   openModal('<h2>分享賽事</h2><label class="f">👀 觀看連結（給參賽者、觀眾）</label><div class="row" style="flex-wrap:nowrap"><input class="inp" readonly value="'+esc(base)+'" onclick="this.select()"><button class="btn sm" data-act="copyLink" data-u="'+esc(base)+'">複製</button></div><div class="muted" style="margin-top:6px">打開就能看對戰樹、賽程與積分，每 8 秒自動更新，不能修改。</div>'+
    (own?'<label class="f" style="margin-top:18px">🔑 管理連結（給共同主辦、計分人員）</label><div class="row" style="flex-wrap:nowrap"><input class="inp" readonly value="'+esc(base+'-k-'+KEYS[t.id])+'" onclick="this.select()"><button class="btn sm" data-act="copyLink" data-u="'+esc(base+'-k-'+KEYS[t.id])+'">複製</button></div><div class="note">⚠️ 拿到管理連結的人可以修改比分與設定，請只給信任的人。你換手機或電腦時，也用這個連結打開就能繼續管理。</div>':'')+
    '<div class="mfoot"><button class="btn" data-act="close">關閉</button></div>')},
+ tdir:function(el){treeDir=el.dataset.d;try{localStorage.setItem('tm-tdir',treeDir)}catch(e){}render()},
+ dlSvg:function(el){var svg=el.closest('.diag').querySelector('svg');dlBlob(diagName(el)+'.svg',new Blob([svgText(svg)],{type:'image/svg+xml'}))},
+ dlPng:function(el){var svg=el.closest('.diag').querySelector('svg'),name=diagName(el),w=+svg.getAttribute('width'),h=+svg.getAttribute('height'),img=new Image();img.onload=function(){var c=document.createElement('canvas'),k=2;c.width=w*k;c.height=h*k;var g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(img,0,0,c.width,c.height);c.toBlob(function(b){dlBlob(name+'.png',b)},'image/png')};img.onerror=function(){toast('轉檔失敗，請改用 SVG')};img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svgText(svg))},
+ printDiag:function(){document.body.classList.add('printing-diag');try{window.print()}catch(e){}setTimeout(function(){document.body.classList.remove('printing-diag')},500)},
  copyLink:function(el){copy(el.dataset.u,'已複製連結')},
  pwLogin:function(){var t=T();openModal('<h2>輸入管理密碼</h2><div class="muted">「'+esc(t.name)+'」</div><label class="f">管理密碼</label><input class="inp" type="password" id="lpw" autocomplete="current-password"><div class="err" id="lerr"></div><div class="mfoot"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="pwLoginOk">登入管理</button></div>');setTimeout(function(){var i=document.getElementById('lpw');if(i)i.focus()},50)},
  pwLoginOk:function(el){var id=ui.tid,pw=document.getElementById('lpw').value,err=document.getElementById('lerr');if(!pw){err.textContent='請輸入密碼';return}

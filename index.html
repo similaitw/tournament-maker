@@ -236,15 +236,30 @@ function pnText(t,id){var p=pmap(t)[id];return p?p.name:(id===null?'輪空':'待
 function toast(msg){var d=document.createElement('div');d.className='toast';d.textContent=msg;document.body.appendChild(d);setTimeout(function(){d.remove()},2200)}
 var KO={main:1,wb:1,lb:1,gf:1,ko:1};
 var FMT={se:'單淘汰',de:'雙淘汰',rr:'循環賽',swiss:'瑞士制',groups:'分組＋淘汰'};
-var FMTD={se:'輸一場就淘汰，最快產生冠軍',de:'輸兩場才淘汰，有勝部與敗部',rr:'每隊都互相交手，看積分',swiss:'依戰績配對，固定輪數',groups:'先分組循環，前幾名進淘汰賽'};
+var FMTD={se:'輸一場就淘汰，最快產生冠軍',de:'輸兩場才淘汰，有勝部與敗部',rr:'每位參賽者都互相交手，看積分',swiss:'依戰績配對，固定輪數',groups:'先分組循環，前幾名進淘汰賽'};
+var SPORT_GROUPS=[
+ ['運動',['足球','籃球','排球','羽球','桌球','棒壘球','網球']],
+ ['腦力・電競',['電競','棋類','桌遊','知識搶答','數學競賽','程式競賽']],
+ ['語文・展演',['辯論','演講','拼字／語文','才藝對決']],
+ ['其他',['其他']]];
 var SPORTS={
  '足球':{win:3,draw:1,loss:0,allowDraw:true},
  '籃球':{win:2,draw:0,loss:1,allowDraw:false},
  '排球':{win:3,draw:0,loss:0,allowDraw:false},
  '羽球':{win:1,draw:0,loss:0,allowDraw:false},
  '桌球':{win:1,draw:0,loss:0,allowDraw:false},
+ '棒壘球':{win:1,draw:0,loss:0,allowDraw:false},
+ '網球':{win:1,draw:0,loss:0,allowDraw:false},
  '電競':{win:3,draw:1,loss:0,allowDraw:true},
  '棋類':{win:1,draw:0.5,loss:0,allowDraw:true},
+ '桌遊':{win:3,draw:1,loss:0,allowDraw:true},
+ '知識搶答':{win:3,draw:1,loss:0,allowDraw:true},
+ '數學競賽':{win:3,draw:1,loss:0,allowDraw:true},
+ '程式競賽':{win:3,draw:1,loss:0,allowDraw:true},
+ '辯論':{win:1,draw:0,loss:0,allowDraw:false},
+ '演講':{win:1,draw:0,loss:0,allowDraw:false},
+ '拼字／語文':{win:3,draw:1,loss:0,allowDraw:true},
+ '才藝對決':{win:1,draw:0,loss:0,allowDraw:false},
  '其他':{win:3,draw:1,loss:0,allowDraw:true}
 };
 
@@ -354,7 +369,7 @@ function standings(t,matches,pids){
  return list}
 function stTable(t,list,opt){
  opt=opt||{};var sw=t.format==='swiss';
- var h='<div class="tblw"><table><thead><tr><th>#</th><th class="l">隊伍／選手</th><th>賽</th><th>勝</th>'+(t.cfg.allowDraw?'<th>和</th>':'')+'<th>負</th><th class="hide-sm">得</th><th class="hide-sm">失</th><th>差</th>'+(sw?'<th title="Buchholz：對手積分總和">BH</th>':'')+'<th>積分</th><th class="hide-sm">近況</th></tr></thead><tbody>';
+ var h='<div class="tblw"><table><thead><tr><th>#</th><th class="l">參賽者</th><th>賽</th><th>勝</th>'+(t.cfg.allowDraw?'<th>和</th>':'')+'<th>負</th><th class="hide-sm">得</th><th class="hide-sm">失</th><th>差</th>'+(sw?'<th title="Buchholz：對手積分總和">BH</th>':'')+'<th>積分</th><th class="hide-sm">近況</th></tr></thead><tbody>';
  list.forEach(function(r,i){var gd=r.F-r.A;
   h+='<tr class="'+(opt.q&&i<opt.q?'q':'')+'"><td class="rk">'+(i+1)+'</td><td class="l"><button class="plink" data-act="player" data-p="'+r.id+'">'+pn(t,r.id)+'</button></td><td>'+r.P+'</td><td>'+r.W+'</td>'+(t.cfg.allowDraw?'<td>'+r.D+'</td>':'')+'<td>'+r.L+'</td><td class="hide-sm">'+r.F+'</td><td class="hide-sm">'+r.A+'</td><td>'+(gd>0?'+':'')+gd+'</td>'+(sw?'<td>'+fmtN(r.bh)+'</td>':'')+'<td class="pts">'+fmtN(r.Pts)+'</td><td class="hide-sm"><span class="form">'+r.form.slice(-5).map(function(f){return '<i class="'+f+'">'+({W:'勝',D:'和',L:'敗',B:'輪'}[f])+'</i>'}).join('')+'</span></td></tr>'});
  return h+'</tbody></table></div>'}
@@ -517,11 +532,11 @@ function render(){
  root.innerHTML=h;setSync();
  if(ui.tv)renderTV()}
 function home(){
- var h='<div class="hero"><h1>賽事大師</h1><p>建立單淘汰、雙淘汰、循環賽、瑞士制與分組賽，自動產生對戰樹與賽程，輸入比分後積分榜即時更新。</p><div class="row"><button class="btn pri" data-act="new">＋ 建立新賽事</button><button class="btn ghost" data-act="demo">看範例</button><button class="btn ghost" data-act="import">匯入</button></div></div>';
+ var h='<div class="hero"><h1>賽事大師</h1><p>運動、電競、棋藝、知識搶答、辯論都適用。建立單淘汰、雙淘汰、循環賽、瑞士制與分組賽，自動產生對戰樹與賽程，輸入比分後積分榜即時更新。</p><div class="row"><button class="btn pri" data-act="new">＋ 建立新賽事</button><button class="btn ghost" data-act="demo">看範例</button><button class="btn ghost" data-act="import">匯入</button></div></div>';
  if(!S.tournaments.length)return h+'<div class="empty"><div class="big">🏟️</div>還沒有賽事，按「建立新賽事」開始吧！</div>';
  h+='<div class="sec-title">我的賽事（'+S.tournaments.length+'）</div><div class="grid">';
  S.tournaments.slice().sort(function(a,b){return b.created-a.created}).forEach(function(t){var st=stats(t),ch=champion(t);
-  h+='<div class="card tcard" data-act="open" data-t="'+t.id+'"><div class="row"><span class="chip acc">'+FMT[t.format]+'</span><span class="chip">'+esc(t.sport)+'</span>'+(ch?'<span class="chip win">已完賽</span>':'')+(isOwn(t)?'':'<span class="chip">👀 觀看中</span>')+'</div><h3>'+esc(t.name)+'</h3><div class="muted">'+t.participants.length+' 隊 · '+st.done+'/'+st.tot+' 場完成'+(ch?' · 冠軍 '+pn(t,ch):'')+'</div><div class="bar"><i style="width:'+(st.tot?Math.round(st.done/st.tot*100):0)+'%"></i></div></div>'});
+  h+='<div class="card tcard" data-act="open" data-t="'+t.id+'"><div class="row"><span class="chip acc">'+FMT[t.format]+'</span><span class="chip">'+esc(t.sport)+'</span>'+(ch?'<span class="chip win">已完賽</span>':'')+(isOwn(t)?'':'<span class="chip">👀 觀看中</span>')+'</div><h3>'+esc(t.name)+'</h3><div class="muted">'+t.participants.length+' 位參賽 · '+st.done+'/'+st.tot+' 場完成'+(ch?' · 冠軍 '+pn(t,ch):'')+'</div><div class="bar"><i style="width:'+(st.tot?Math.round(st.done/st.tot*100):0)+'%"></i></div></div>'});
  return h+'</div>'}
 function tabsFor(t){
  var b={se:'對戰樹',de:'對戰樹',rr:'對戰表',swiss:'配對',groups:'淘汰賽'}[t.format];
@@ -532,7 +547,7 @@ function tabsFor(t){
 function tView(){
  var t=T(),st=stats(t),ch=champion(t),tabs=tabsFor(t);
  if(!tabs.some(function(x){return x[0]===ui.tab}))ui.tab=tabs[0][0];
- var h='<div class="thead"><div style="flex:1;min-width:220px"><div class="row" style="margin-bottom:6px"><span class="chip acc">'+FMT[t.format]+'</span><span class="chip">'+esc(t.sport)+'</span><span class="chip">'+t.participants.length+' 隊</span></div><h1>'+esc(t.name)+'</h1><div class="muted" style="margin-top:4px">進度 '+st.done+' / '+st.tot+' 場</div><div class="bar" style="max-width:320px"><i style="width:'+(st.tot?Math.round(st.done/st.tot*100):0)+'%"></i></div></div><div class="row"><button class="btn" data-act="tv">📺 大螢幕</button><button class="btn" data-act="share">🔗 分享</button></div></div>';
+ var h='<div class="thead"><div style="flex:1;min-width:220px"><div class="row" style="margin-bottom:6px"><span class="chip acc">'+FMT[t.format]+'</span><span class="chip">'+esc(t.sport)+'</span><span class="chip">'+'參賽 '+t.participants.length+'</span></div><h1>'+esc(t.name)+'</h1><div class="muted" style="margin-top:4px">進度 '+st.done+' / '+st.tot+' 場</div><div class="bar" style="max-width:320px"><i style="width:'+(st.tot?Math.round(st.done/st.tot*100):0)+'%"></i></div></div><div class="row"><button class="btn" data-act="tv">📺 大螢幕</button><button class="btn" data-act="share">🔗 分享</button></div></div>';
  if(ch)h+='<div class="champ"><span class="tro">🏆</span><div><div class="muted">冠軍</div><b>'+pn(t,ch)+'</b></div></div>';
  h+='<div class="tabs">'+tabs.map(function(x){return '<button class="tab '+(ui.tab===x[0]?'on':'')+'" data-act="tab" data-tab="'+x[0]+'">'+x[1]+'</button>'}).join('')+'</div>';
  h+={bracket:vBracket,standings:vStandings,schedule:vSchedule,players:vPlayers,settings:vSettings}[ui.tab](t);
@@ -583,7 +598,7 @@ function crossTable(t){
    var cls=cells.length===1?cells[0].cls||'':'';
    h+='<td class="'+cls+'" '+(!ro()&&cells[0]?'data-act="score" data-m="'+cells[0].m.id+'" style="cursor:pointer"':'')+'>'+cells.map(function(c){return c.txt}).join('<br>')+'</td>'});
   h+='</tr>'});
- return h+'</tbody></table></div><div class="note">點格子即可輸入比分。列為主隊視角，綠色代表勝、紅色代表負。</div>'}
+ return h+'</tbody></table></div><div class="note">點格子即可輸入比分。以左側那一列參賽者的角度顯示，綠色代表勝、紅色代表負。</div>'}
 function vStandings(t){
  var ids=t.participants.map(function(p){return p.id});
  if(t.format==='rr'||t.format==='swiss'){return stTable(t,standings(t,t.matches,ids))+'<div class="note">排名依序比較：積分 → '+(t.format==='swiss'?'Buchholz（對手積分總和）→ ':'')+'得失分差 → 總得分 → 勝場數。積分：勝 '+t.cfg.win+'、'+(t.cfg.allowDraw?'和 '+t.cfg.draw+'、':'')+'負 '+t.cfg.loss+'。</div>'}
@@ -591,7 +606,7 @@ function vStandings(t){
   t.groups.forEach(function(g){h+='<div><h3>'+g.name+' 組</h3>'+stTable(t,standings(t,t.matches.filter(function(m){return m.group===g.name}),g.ids),{q:t.cfg.adv})+'</div>'});
   return h+'</div><div class="note">左側橘色標記為晉級區（每組前 '+t.cfg.adv+' 名）。</div>'}
  var list=placements(t,t.format==='se'?'main':'main');
- var h2='<div class="tblw"><table><thead><tr><th>名次</th><th class="l">隊伍／選手</th><th>狀態</th></tr></thead><tbody>';
+ var h2='<div class="tblw"><table><thead><tr><th>名次</th><th class="l">參賽者</th><th>狀態</th></tr></thead><tbody>';
  list.forEach(function(x){h2+='<tr><td class="rk">'+(x.place||'—')+'</td><td class="l"><button class="plink" data-act="player" data-p="'+x.id+'">'+pn(t,x.id)+'</button></td><td>'+(x.place===1?'<span class="chip win">冠軍</span>':x.place?'<span class="chip">已淘汰</span>':'<span class="chip acc">晉級中</span>')+'</td></tr>'});
  return h2+'</tbody></table></div>'}
 function sortKey(m){
@@ -604,7 +619,7 @@ function vSchedule(t){
   if(q){var s=sides(t,m);return [s[0],s[1]].some(function(x){return typeof x==='string'&&pnText(t,x).toLowerCase().indexOf(q)>=0})}return true});
  ms.sort(function(a,b){var sa=(t.sched||{})[a.id]||{},sb=(t.sched||{})[b.id]||{},ka=(sa.date||'9')+(sa.time||'9'),kb=(sb.date||'9')+(sb.time||'9');
   if(ka!==kb)return ka<kb?-1:1;return sortKey(a)-sortKey(b)||(cd[a.id]||0)-(cd[b.id]||0)});
- var h='<div class="filters">'+[['all','全部'],['todo','未完成'],['done','已完成']].map(function(f){return '<button class="fchip '+(ui.filter===f[0]?'on':'')+'" data-act="filter" data-f="'+f[0]+'">'+f[1]+'</button>'}).join('')+'<input class="search" id="q" placeholder="搜尋隊伍…" value="'+esc(ui.q)+'">'+(!ro()?'<button class="btn sm" data-act="autoSched">⏱ 自動排程</button>':'')+'</div>';
+ var h='<div class="filters">'+[['all','全部'],['todo','未完成'],['done','已完成']].map(function(f){return '<button class="fchip '+(ui.filter===f[0]?'on':'')+'" data-act="filter" data-f="'+f[0]+'">'+f[1]+'</button>'}).join('')+'<input class="search" id="q" placeholder="搜尋參賽者…" value="'+esc(ui.q)+'">'+(!ro()?'<button class="btn sm" data-act="autoSched">⏱ 自動排程</button>':'')+'</div>';
  if(!ms.length)return h+'<div class="empty">沒有符合的比賽</div>';
  h+='<div class="slist">';
  ms.forEach(function(m){var s=sides(t,m),o=outcome(t,m),r=validRes(t,m),sc=(t.sched||{})[m.id]||{},pl=playable(t,m);
@@ -615,14 +630,14 @@ function vSchedule(t){
 function hasResults(t){return Object.keys(t.results).length>0}
 function vPlayers(t){
  var locked=hasResults(t),isRo=ro();
- var h='<div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="muted">'+(locked?'比賽已開始：可修改名稱；增減隊伍或調整種子需重新產生賽程。':'排列順序即為種子序，可上下調整。')+'</span>'+(isRo?'':'<div class="row">'+(locked?'':'<button class="btn sm" data-act="shuffle">🔀 隨機種子</button>')+'<button class="btn sm" data-act="addP">＋ 新增</button></div>')+'</div><div class="plist">';
+ var h='<div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="muted">'+(locked?'比賽已開始：可修改名稱；增減參賽者或調整種子需重新產生賽程。':'排列順序即為種子序，可上下調整。')+'</span>'+(isRo?'':'<div class="row">'+(locked?'':'<button class="btn sm" data-act="shuffle">🔀 隨機種子</button>')+'<button class="btn sm" data-act="addP">＋ 新增</button></div>')+'</div><div class="plist">';
  t.participants.forEach(function(p,i){var g=t.groups?t.groups.find(function(g){return g.ids.indexOf(p.id)>=0}):null;
   h+='<div class="pitem"><span class="sd">'+(i+1)+'</span><input data-pid="'+p.id+'" class="pname" value="'+esc(p.name)+'" '+(isRo?'disabled':'')+'>'+(g?'<span class="chip">'+g.name+' 組</span>':'')+'<button class="ib" data-act="player" data-p="'+p.id+'" title="比賽紀錄">📋</button>'+(isRo||locked?'':'<button class="ib" data-act="mv" data-p="'+p.id+'" data-d="-1" '+(i===0?'disabled':'')+'>▲</button><button class="ib" data-act="mv" data-p="'+p.id+'" data-d="1" '+(i===t.participants.length-1?'disabled':'')+'>▼</button><button class="ib" data-act="delP" data-p="'+p.id+'">✕</button>')+'</div>'});
  return h+'</div>'}
 function vSettings(t){
  if(ro())return '<div class="muted">檢視模式無法修改設定。</div>'+(mode==='cloud'?'<div class="row" style="margin-top:12px"><button class="btn danger" data-act="delT">從我的清單移除</button></div>':'');
  var c=t.cfg;
- return '<div class="card"><label class="f">賽事名稱</label><input class="inp" id="s_name" value="'+esc(t.name)+'"><div class="two"><div><label class="f">運動項目</label><input class="inp" id="s_sport" value="'+esc(t.sport)+'"></div><div><label class="f">賽制</label><input class="inp" value="'+FMT[t.format]+'" disabled></div></div>'+
+ return '<datalist id="sportList">'+Object.keys(SPORTS).map(function(k){return '<option value="'+k+'">'}).join('')+'</datalist><div class="card"><label class="f">賽事名稱</label><input class="inp" id="s_name" value="'+esc(t.name)+'"><div class="two"><div><label class="f">比賽類型</label><input class="inp" id="s_sport" list="sportList" value="'+esc(t.sport)+'"></div><div><label class="f">賽制</label><input class="inp" value="'+FMT[t.format]+'" disabled></div></div>'+
  (t.format==='se'||t.format==='de'?'':'<div class="three"><div><label class="f">勝場積分</label><input class="inp" type="number" step="0.5" id="s_win" value="'+c.win+'"></div><div><label class="f">和局積分</label><input class="inp" type="number" step="0.5" id="s_draw" value="'+c.draw+'"></div><div><label class="f">敗場積分</label><input class="inp" type="number" step="0.5" id="s_loss" value="'+c.loss+'"></div></div><label class="check"><input type="checkbox" id="s_ad" '+(c.allowDraw?'checked':'')+'>允許平手</label>')+
  (t.format==='swiss'?'<label class="f">總輪數</label><input class="inp" type="number" min="1" id="s_sr" value="'+c.swissRounds+'">':'')+
  '<div class="mfoot"><button class="btn pri" data-act="saveSettings">儲存設定</button></div></div>'+
@@ -635,13 +650,13 @@ function closeModal(){var o=document.getElementById('ov');if(o)o.remove();modalC
 function confirmBox(title,msg,ok,okLabel){openModal('<h2>'+title+'</h2><p class="muted" style="line-height:1.6">'+msg+'</p><div class="mfoot"><button class="btn" data-act="close">取消</button><button class="btn danger" data-act="cfmOk">'+(okLabel||'確定')+'</button></div>');modalCtx.ok=ok}
 var newCfg={};
 function openNew(){
- newCfg={format:'se',sport:'足球'};
+ newCfg={format:'se',sport:'其他'};
  openModal('<h2>建立新賽事</h2><div class="muted">填好名稱與參賽者，系統會自動產生對戰樹與賽程。</div>'+
- '<label class="f">賽事名稱</label><input class="inp" id="n_name" placeholder="例：115 學年度班際足球賽">'+
- '<label class="f">運動項目</label><select class="inp" id="n_sport">'+Object.keys(SPORTS).map(function(s){return '<option>'+s+'</option>'}).join('')+'</select>'+
+ '<label class="f">賽事名稱</label><input class="inp" id="n_name" placeholder="例：115 學年度班際知識搶答賽">'+
+ '<label class="f">比賽類型 <span class="muted" style="font-weight:400">（會帶入建議的積分規則，之後可改）</span></label><select class="inp" id="n_sport">'+SPORT_GROUPS.map(function(g){return '<optgroup label="'+g[0]+'">'+g[1].map(function(s){return '<option'+(s==='其他'?' selected':'')+'>'+s+'</option>'}).join('')+'</optgroup>'}).join('')+'<option value="__custom">自訂…</option></select><input class="inp" id="n_custom" placeholder="輸入比賽類型，例如：魔術方塊、機器人競賽" style="display:none;margin-top:8px">'+
  '<label class="f">賽制</label><div class="fmts">'+Object.keys(FMT).map(function(k){return '<button class="fmt '+(k==='se'?'on':'')+'" data-act="pickFmt" data-f="'+k+'"><b>'+FMT[k]+'</b><span>'+FMTD[k]+'</span></button>'}).join('')+'</div>'+
  '<div id="n_opts"></div>'+
- '<label class="f">參賽隊伍／選手（一行一個）<span id="n_cnt" class="muted" style="font-weight:400;margin-left:6px">0 隊</span></label><textarea class="inp" id="n_ps" placeholder="一年一班&#10;一年二班&#10;一年三班&#10;一年四班"></textarea>'+
+ '<label class="f">參賽者（隊伍、班級或個人，一行一個）<span id="n_cnt" class="muted" style="font-weight:400;margin-left:6px">0 位</span></label><textarea class="inp" id="n_ps" placeholder="一年一班&#10;一年二班&#10;一年三班&#10;一年四班"></textarea>'+
  '<label class="check"><input type="checkbox" id="n_shuf">隨機排列種子</label>'+
  (mode==='cloud'?'<label class="f">管理密碼（選填，至少 4 個字）</label><input class="inp" type="password" id="n_pw" autocomplete="new-password" placeholder="設定後可在任何裝置輸入密碼來管理">':'')+
  '<div class="err" id="n_err"></div><div class="mfoot"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="create">建立賽事</button></div>');
@@ -651,7 +666,7 @@ function renderNewOpts(){var f=newCfg.format,h='',el=document.getElementById('n_
  if(f==='rr'||f==='groups')h+='<label class="f">循環次數</label><select class="inp" id="n_legs"><option value="1">單循環（每組對手打一次）</option><option value="2">雙循環（主客場各一次）</option></select>';
  if(f==='swiss')h+='<label class="f">輪數（留白自動計算）</label><input class="inp" type="number" min="1" id="n_sr" placeholder="自動">';
  if(f==='groups')h+='<div class="two"><div><label class="f">組數</label><input class="inp" type="number" min="1" id="n_g" value="2"></div><div><label class="f">每組晉級名額</label><input class="inp" type="number" min="1" id="n_adv" value="2"></div></div>';
- if(f==='de')h+='<div class="note">雙淘汰至少需要 4 隊。</div>';
+ if(f==='de')h+='<div class="note">雙淘汰至少需要 4 位參賽者。</div>';
  el.innerHTML=h}
 function createT(o){
  var sp=SPORTS[o.sport]||SPORTS['其他'];
@@ -671,12 +686,12 @@ function openScore(mid){
  updPick()}
 function updPick(){var a=document.getElementById('sa'),b=document.getElementById('sb'),box=document.getElementById('pickBox');if(!a||!box)return;
  var t=T();var tie=a.value!==''&&b.value!==''&&Number(a.value)===Number(b.value);
- if(tie&&modalCtx.ko){box.innerHTML='<div class="pick">淘汰賽不能平手，請選擇晉級方（例如 PK 或延長賽勝出）：<div class="row"><button class="btn sm '+(modalCtx.pick===modalCtx.a?'pri':'')+'" data-act="pick" data-w="a">'+pn(t,modalCtx.a)+'</button><button class="btn sm '+(modalCtx.pick===modalCtx.b?'pri':'')+'" data-act="pick" data-w="b">'+pn(t,modalCtx.b)+'</button></div></div>'}
+ if(tie&&modalCtx.ko){box.innerHTML='<div class="pick">淘汰賽不能平手，請選擇晉級方（例如加賽、決勝題或評審判定）：<div class="row"><button class="btn sm '+(modalCtx.pick===modalCtx.a?'pri':'')+'" data-act="pick" data-w="a">'+pn(t,modalCtx.a)+'</button><button class="btn sm '+(modalCtx.pick===modalCtx.b?'pri':'')+'" data-act="pick" data-w="b">'+pn(t,modalCtx.b)+'</button></div></div>'}
  else if(tie&&!t.cfg.allowDraw){box.innerHTML='<div class="pick">此賽事設定為不允許平手，請修改比分。</div>'}
  else box.innerHTML=''}
 function openSched(mid){var t=T(),m=byId(t,mid),sc=(t.sched||{})[mid]||{},s=sides(t,m);
  modalCtx={mid:mid};
- openModal('<h2>比賽時間與場地</h2><div class="muted">#'+codes(t)[mid]+' · '+roundLabel(t,m)+'：'+pn(t,s[0])+' vs '+pn(t,s[1])+'</div><div class="two"><div><label class="f">日期</label><input class="inp" type="date" id="e_date" value="'+esc(sc.date||'')+'"></div><div><label class="f">時間</label><input class="inp" type="time" id="e_time" value="'+esc(sc.time||'')+'"></div></div><label class="f">場地</label><input class="inp" id="e_court" placeholder="例：A 場、體育館" value="'+esc(sc.court||'')+'"><div class="mfoot"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="saveSched">儲存</button></div>')}
+ openModal('<h2>比賽時間與場地</h2><div class="muted">#'+codes(t)[mid]+' · '+roundLabel(t,m)+'：'+pn(t,s[0])+' vs '+pn(t,s[1])+'</div><div class="two"><div><label class="f">日期</label><input class="inp" type="date" id="e_date" value="'+esc(sc.date||'')+'"></div><div><label class="f">時間</label><input class="inp" type="time" id="e_time" value="'+esc(sc.time||'')+'"></div></div><label class="f">場地</label><input class="inp" id="e_court" placeholder="例：A 場、視聽教室、第 3 桌" value="'+esc(sc.court||'')+'"><div class="mfoot"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="saveSched">儲存</button></div>')}
 function openAuto(){var d=new Date(Date.now()+864e5),ds=d.toISOString().slice(0,10);
  openModal('<h2>自動排程</h2><div class="muted">依輪次順序把比賽排進時段與場地，同一輪結束後才開始下一輪。</div><div class="two"><div><label class="f">開始日期</label><input class="inp" type="date" id="a_date" value="'+ds+'"></div><div><label class="f">開始時間</label><input class="inp" type="time" id="a_time" value="09:00"></div></div><div class="three"><div><label class="f">每場（分鐘）</label><input class="inp" type="number" min="5" id="a_dur" value="30"></div><div><label class="f">場地數</label><input class="inp" type="number" min="1" id="a_courts" value="2"></div><div><label class="f">場地名稱</label><input class="inp" id="a_pre" value="場地"></div></div><label class="f">每天最晚結束（超過就排到隔天）</label><input class="inp" type="time" id="a_end" value="17:00"><label class="check"><input type="checkbox" id="a_keep">保留已排定的比賽</label><div class="mfoot"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="runAuto">開始排程</button></div>')}
 function openPlayer(pid){var t=T(),p=pmap(t)[pid];if(!p)return;var cd=codes(t),W=0,D=0,L=0,rows='';
@@ -707,8 +722,8 @@ function demo(){
  t.matches.forEach(function(m,i){if(i<9){var sa=(i*7+3)%4,sb=(i*5+1)%3;var s=sides(t,m);t.results[m.id]={a:s[0],b:s[1],sa:sa,sb:sb,at:Date.now()+i}}});
  var base=new Date(Date.now()+864e5).toISOString().slice(0,10);
  t.matches.forEach(function(m,i){t.sched[m.id]={date:base,time:String(9+Math.floor(i/2)).padStart(2,'0')+':'+(i%2?'30':'00'),court:(i%2?'B':'A')+' 場'}});
- var t2=createT({name:'範例｜校內桌球單打',sport:'桌球',format:'se',names:['王小明','陳怡君','林志豪','張雅婷','李承恩','黃詩涵','吳柏翰'],third:true});
- t2.matches.filter(function(m){return m.round===1}).forEach(function(m,i){cache.clear();var s=sides(t2,m);if(typeof s[0]==='string'&&typeof s[1]==='string')t2.results[m.id]={a:s[0],b:s[1],sa:3,sb:i%3,at:Date.now()}});
+ var t2=createT({name:'範例｜班際知識搶答賽',sport:'知識搶答',format:'se',names:['701 班','702 班','703 班','704 班','705 班','706 班','707 班'],third:true});
+ t2.matches.filter(function(m){return m.round===1}).forEach(function(m,i){cache.clear();var s=sides(t2,m);if(typeof s[0]==='string'&&typeof s[1]==='string')t2.results[m.id]={a:s[0],b:s[1],sa:120-i*10,sb:70+i*5,at:Date.now()}});
  return t}
 
 /* ---------- actions ---------- */
@@ -725,11 +740,12 @@ var A={
   var name=document.getElementById('n_name').value.trim(),names=document.getElementById('n_ps').value.split('\n').map(function(s){return s.trim()}).filter(Boolean),err=document.getElementById('n_err'),f=newCfg.format;
   var seen={};names=names.filter(function(n){if(seen[n])return false;seen[n]=1;return true});
   if(!name){err.textContent='請輸入賽事名稱';return}
-  var min=f==='de'?4:f==='groups'?4:2;if(names.length<min){err.textContent=FMT[f]+'至少需要 '+min+' 隊';return}
+  var min=f==='de'?4:f==='groups'?4:2;if(names.length<min){err.textContent=FMT[f]+'至少需要 '+min+' 位參賽者';return}
   if(document.getElementById('n_shuf').checked)names.sort(function(){return Math.random()-.5});
   var g=document.getElementById('n_g'),adv=document.getElementById('n_adv'),sr=document.getElementById('n_sr'),legs=document.getElementById('n_legs'),th=document.getElementById('n_third');
-  var o={name:name,sport:document.getElementById('n_sport').value,format:f,names:names,third:th?th.checked:false,legs:legs?Number(legs.value):1,sr:sr&&sr.value?Math.max(1,parseInt(sr.value)):0,groups:g?Math.max(1,parseInt(g.value)||2):2,adv:adv?Math.max(1,parseInt(adv.value)||2):2};
-  if(f==='groups'){if(names.length/o.groups<2){err.textContent='每組至少要 2 隊，請減少組數';return}var minG=Math.floor(names.length/o.groups);if(o.adv>minG){err.textContent='晉級名額不能多於每組隊數（'+minG+'）';return}}
+  var spv=document.getElementById('n_sport').value;if(spv==='__custom'){spv=document.getElementById('n_custom').value.trim();if(!spv){err.textContent='請輸入比賽類型';return}}
+  var o={name:name,sport:spv,format:f,names:names,third:th?th.checked:false,legs:legs?Number(legs.value):1,sr:sr&&sr.value?Math.max(1,parseInt(sr.value)):0,groups:g?Math.max(1,parseInt(g.value)||2):2,adv:adv?Math.max(1,parseInt(adv.value)||2):2};
+  if(f==='groups'){if(names.length/o.groups<2){err.textContent='每組至少要 2 位參賽者，請減少組數';return}var minG=Math.floor(names.length/o.groups);if(o.adv>minG){err.textContent='晉級名額不能多於每組人數（'+minG+'）';return}}
   var npw=document.getElementById('n_pw');if(npw&&npw.value&&npw.value.length<4){err.textContent='管理密碼至少要 4 個字';return}
   var t=createT(o);if(npw&&npw.value)PENDPW[t.id]=npw.value;closeModal();save();go('t',t.id)},
  score:function(el){openScore(el.dataset.m)},
@@ -769,7 +785,7 @@ var A={
  mv:function(el){var t=T(),i=t.participants.findIndex(function(p){return p.id===el.dataset.p}),j=i+Number(el.dataset.d);if(j<0||j>=t.participants.length)return;var x=t.participants[i];t.participants[i]=t.participants[j];t.participants[j]=x;build(t);save()},
  addP:function(){openModal('<h2>新增參賽者</h2><label class="f">名稱（可一次多行）</label><textarea class="inp" id="ap" style="min-height:100px"></textarea>'+(hasResults(T())?'<div class="note">比賽已開始，新增後會重新產生賽程並清除比分。</div>':'')+'<div class="mfoot"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="addPOk">新增</button></div>')},
  addPOk:function(){var t=T(),ns=document.getElementById('ap').value.split('\n').map(function(s){return s.trim()}).filter(Boolean);if(!ns.length){closeModal();return}ns.forEach(function(n){t.participants.push({id:uid(),name:n})});build(t);closeModal();save()},
- delP:function(el){var t=T(),p=pmap(t)[el.dataset.p];confirmBox('移除「'+esc(p.name)+'」？','移除後會重新產生賽程。',function(){if(t.participants.length<=2){toast('至少需要 2 隊');return}t.participants=t.participants.filter(function(x){return x.id!==p.id});build(t);save()},'移除')},
+ delP:function(el){var t=T(),p=pmap(t)[el.dataset.p];confirmBox('移除「'+esc(p.name)+'」？','移除後會重新產生賽程。',function(){if(t.participants.length<=2){toast('至少需要 2 位參賽者');return}t.participants=t.participants.filter(function(x){return x.id!==p.id});build(t);save()},'移除')},
  saveSettings:function(){var t=T(),g=function(id){return document.getElementById(id)};t.name=g('s_name').value.trim()||t.name;t.sport=g('s_sport').value.trim()||t.sport;
   if(g('s_win')){t.cfg.win=Number(g('s_win').value);t.cfg.draw=Number(g('s_draw').value);t.cfg.loss=Number(g('s_loss').value);t.cfg.allowDraw=g('s_ad').checked}
   if(g('s_sr'))t.cfg.swissRounds=Math.max(swissRoundNo(t),parseInt(g('s_sr').value)||1);save();toast('設定已儲存')},
@@ -782,7 +798,7 @@ var A={
  share:function(){var t=T();
   if(mode!=='cloud'){copy(location.href,mode==='shared'?'已複製連結。記得在 claude.ai 的分享設定開放給對方檢視':'已複製連結（資料存在這台裝置的瀏覽器，可用「複製賽事資料」轉移）');return}
   var base=location.origin+location.pathname+'#t-'+t.id+'-'+tabsFor(t)[0][0],own=!!KEYS[t.id];
-  openModal('<h2>分享賽事</h2><label class="f">👀 觀看連結（給選手、觀眾）</label><div class="row" style="flex-wrap:nowrap"><input class="inp" readonly value="'+esc(base)+'" onclick="this.select()"><button class="btn sm" data-act="copyLink" data-u="'+esc(base)+'">複製</button></div><div class="muted" style="margin-top:6px">打開就能看對戰樹、賽程與積分，每 8 秒自動更新，不能修改。</div>'+
+  openModal('<h2>分享賽事</h2><label class="f">👀 觀看連結（給參賽者、觀眾）</label><div class="row" style="flex-wrap:nowrap"><input class="inp" readonly value="'+esc(base)+'" onclick="this.select()"><button class="btn sm" data-act="copyLink" data-u="'+esc(base)+'">複製</button></div><div class="muted" style="margin-top:6px">打開就能看對戰樹、賽程與積分，每 8 秒自動更新，不能修改。</div>'+
    (own?'<label class="f" style="margin-top:18px">🔑 管理連結（給共同主辦、計分人員）</label><div class="row" style="flex-wrap:nowrap"><input class="inp" readonly value="'+esc(base+'-k-'+KEYS[t.id])+'" onclick="this.select()"><button class="btn sm" data-act="copyLink" data-u="'+esc(base+'-k-'+KEYS[t.id])+'">複製</button></div><div class="note">⚠️ 拿到管理連結的人可以修改比分與設定，請只給信任的人。你換手機或電腦時，也用這個連結打開就能繼續管理。</div>':'')+
    '<div class="mfoot"><button class="btn" data-act="close">關閉</button></div>')},
  copyLink:function(el){copy(el.dataset.u,'已複製連結')},
@@ -808,8 +824,8 @@ function fallbackCopy(txt){openModal('<h2>請手動複製</h2><textarea class="i
 document.addEventListener('click',function(e){var el=e.target.closest('[data-act]');if(!el||el.disabled)return;var f=A[el.dataset.act];if(f){e.preventDefault();f(el,e)}});
 document.addEventListener('input',function(e){
  if(e.target.id==='sa'||e.target.id==='sb')updPick();
- if(e.target.id==='n_ps'){var n=e.target.value.split('\n').filter(function(s){return s.trim()}).length;document.getElementById('n_cnt').textContent=n+' 隊'}
- if(e.target.id==='n_sport'){newCfg.sport=e.target.value}
+ if(e.target.id==='n_ps'){var n=e.target.value.split('\n').filter(function(s){return s.trim()}).length;document.getElementById('n_cnt').textContent=n+' 位'}
+ if(e.target.id==='n_sport'){newCfg.sport=e.target.value;var nc=document.getElementById('n_custom');if(nc){nc.style.display=e.target.value==='__custom'?'block':'none';if(e.target.value==='__custom')nc.focus()}}
  if(e.target.id==='q'){ui.q=e.target.value;var pos=e.target.selectionStart;render();var q=document.getElementById('q');if(q){q.focus();try{q.setSelectionRange(pos,pos)}catch(x){}}}});
 document.addEventListener('change',function(e){if(e.target.classList.contains('pname')){var t=T(),p=pmap(t)[e.target.dataset.pid],v=e.target.value.trim();if(p&&v&&v!==p.name){p.name=v;save()}}});
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(document.getElementById('ov'))closeModal();else if(ui.tv)closeTV()}if(e.key==='Enter'&&e.target.id==='lpw'){var lb=document.querySelector('[data-act="pwLoginOk"]');if(lb)A.pwLoginOk(lb)}

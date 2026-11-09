@@ -390,9 +390,61 @@ function buildDoc(){
  var json=JSON.stringify(S).replace(/</g,'\\u003c');
  var E='</'+'script>';
  return '<!DOCTYPE html>\n<html lang="zh-Hant-TW">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<title>賽事大師｜對戰樹與即時積分</title>\n<link rel="preconnect" href="https://fonts.googleapis.com">\n<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">\n<style id="app-style">'+style+'</style>\n</head>\n<body>\n<div id="root"></div>\n<script type="application/json" id="state">'+json+E+'\n<script id="app-script">'+code+E+'\n</body>\n</html>\n'}
+/* ----- 雲端模式（Vercel Blob） ----- */
+var KEYS={},VIEW={},synced={},cloudTimer=null,cloudBusy=false,cloudErr=false,loadingIds={};
+try{KEYS=JSON.parse(localStorage.getItem('tm-keys')||'{}')||{}}catch(e){KEYS={}}
+try{VIEW=JSON.parse(localStorage.getItem('tm-view')||'{}')||{}}catch(e){VIEW={}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function lsSave(){lsSet('tm-state',S);lsSet('tm-keys',KEYS);lsSet('tm-view',VIEW)}
+function newKey(){var a=new Uint8Array(16);try{crypto.getRandomValues(a)}catch(e){for(var i=0;i<16;i++)a[i]=Math.floor(Math.random()*256)}return Array.prototype.map.call(a,function(b){return ('0'+b.toString(16)).slice(-2)}).join('')}
+function ro(){if(mode==='ro')return true;if(mode==='cloud'&&ui.view==='t'&&ui.tid&&!KEYS[ui.tid])return true;return false}
+function isOwn(t){return mode!=='cloud'||!!KEYS[t.id]}
+function tJSON(t){return JSON.stringify(t)}
+function unsynced(){return S.tournaments.some(function(t){return KEYS[t.id]&&synced[t.id]!==tJSON(t)})}
+function cloudSync(){
+ if(mode!=='cloud'||cloudBusy)return;
+ var t=S.tournaments.find(function(x){return KEYS[x.id]&&synced[x.id]!==tJSON(x)});
+ if(!t){setSync();return}
+ cloudBusy=true;setSync();var sent=tJSON(t),id=t.id;
+ fetch('/api/t?id='+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:KEYS[id],t:JSON.parse(sent)})})
+ .then(function(r){return r.json().catch(function(){return{}}).then(function(j){return{s:r.status,j:j}})})
+ .then(function(x){cloudBusy=false;
+  if(x.s===200){cloudErr=false;var cur=S.tournaments.find(function(y){return y.id===id});if(cur){var ch=tJSON(cur)!==sent;cur.updated=x.j.updated;synced[id]=ch?'':tJSON(cur)}lsSave();cloudSync()}
+  else if(x.s===409){cloudErr=false;toast('另一台裝置剛更新過，已載入最新資料');pull(id,true).then(cloudSync)}
+  else if(x.s===403){delete KEYS[id];VIEW[id]=1;lsSave();toast('沒有這個賽事的管理權限');render()}
+  else if(x.s===413){cloudErr=true;setSync();toast('賽事資料太大，無法存到雲端')}
+  else{cloudErr=true;setSync();setTimeout(cloudSync,8000)}})
+ .catch(function(){cloudBusy=false;cloudErr=true;setSync();setTimeout(cloudSync,8000)})}
+function pull(id,force){
+ loadingIds[id]=1;
+ return fetch('/api/t?id='+id+(KEYS[id]?'&key='+KEYS[id]:''),{cache:'no-store'}).then(function(r){return r.json().catch(function(){return{}}).then(function(j){return{s:r.status,j:j}})}).then(function(x){
+  delete loadingIds[id];
+  if(x.s===404){if(!S.tournaments.some(function(t){return t.id===id})&&ui.tid===id){toast('找不到這個賽事');go('home')}return 404}
+  if(x.s!==200||!x.j.t)return x.s;
+  if(KEYS[id]&&!x.j.canEdit){delete KEYS[id];VIEW[id]=1}
+  var i=S.tournaments.findIndex(function(t){return t.id===id}),loc=S.tournaments[i],changed=false;
+  if(i<0){S.tournaments.push(x.j.t);if(!KEYS[id])VIEW[id]=1;changed=true}
+  else{var pending=KEYS[id]&&synced[id]!==tJSON(loc);
+   if(force||(!pending&&(x.j.updated||0)>(loc.updated||0))){S.tournaments[i]=x.j.t;changed=true}}
+  if(KEYS[id]&&changed)synced[id]=tJSON(S.tournaments.find(function(t){return t.id===id}));
+  if(KEYS[id]&&i>=0&&!changed&&synced[id]===undefined&&(x.j.updated||0)===(loc.updated||0))synced[id]=tJSON(loc);
+  if(changed){lsSave();render()}
+  return 200}).catch(function(){delete loadingIds[id];return 0})}
+function cloudDelete(id){var k=KEYS[id];delete KEYS[id];delete VIEW[id];delete synced[id];lsSave();
+ if(k)fetch('/api/t?id='+id,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k})}).catch(function(){})}
+function startCloud(){
+ mode='cloud';
+ try{var L=JSON.parse(localStorage.getItem('tm-state')||'null');if(L&&L.tournaments)S=L}catch(e){}
+ S.tournaments.forEach(function(t){if(!KEYS[t.id]&&!VIEW[t.id])KEYS[t.id]=newKey()});
+ lsSave();cache.clear();render();
+ var ids=S.tournaments.map(function(t){return t.id});
+ if(ui.tid&&ids.indexOf(ui.tid)<0)ids.unshift(ui.tid);
+ ids.reduce(function(p,id){return p.then(function(){return pull(id)})},Promise.resolve()).then(function(){cloudSync();render()});
+ setInterval(function(){if(mode==='cloud'&&ui.view==='t'&&ui.tid&&!cloudBusy&&document.visibilityState!=='hidden')pull(ui.tid)},8000)}
 function save(){
  S.updated=Date.now();cache.clear();render();
  if(mode==='shared'){dirty=true;setSync();clearTimeout(pubTimer);pubTimer=setTimeout(publish,700)}
+ else if(mode==='cloud'){lsSave();setSync();clearTimeout(cloudTimer);cloudTimer=setTimeout(cloudSync,500)}
  else{try{localStorage.setItem('tm-state',JSON.stringify(S))}catch(e){}}}
 function publish(){
  if(!art)return;
@@ -402,10 +454,15 @@ function publish(){
   else if(/conflict/.test(c)){toast('有人同時更新，已載入最新版本')}
   else{dirty=false;setSync();toast('儲存失敗，請稍後再試')}})}
 function setSync(){var el=document.getElementById('sync');if(!el)return;
- var m={loading:['','連線中…'],shared:[dirty?'busy':'ok',dirty?'儲存中…':'已同步'],local:['loc','本機儲存'],ro:['ro','唯讀檢視']}[mode];
+ var us=mode==='cloud'&&(cloudBusy||unsynced());
+ var m={loading:['','連線中…'],shared:[dirty?'busy':'ok',dirty?'儲存中…':'已同步'],local:['loc','本機儲存'],ro:['ro','唯讀檢視'],cloud:cloudErr?['ro','離線，稍後重試']:[us?'busy':'ok',us?'同步中…':'雲端已同步']}[mode];
  el.className='sync '+m[0];el.textContent=m[1]}
 function initArt(){
- (async function(){var n=0;while(!(window.claude&&window.claude.use)&&n<30){await sleep(100);n++}
+ (async function(){
+  var cloudOk=false;
+  if(!(window.claude&&window.claude.use)&&/^https?:$/.test(location.protocol)){try{var pr=await fetch('/api/t',{cache:'no-store'});var pj=await pr.json();cloudOk=!!(pr.ok&&pj&&pj.ok)}catch(e){}}
+  if(cloudOk){startCloud();setSync();return}
+  var n=0;while(!(window.claude&&window.claude.use)&&n<30){await sleep(100);n++}
   try{art=(window.claude&&window.claude.use)?await window.claude.use('artifact'):null}catch(e){art=null}
   if(art)mode='shared';
   else{mode='local';try{var L=JSON.parse(localStorage.getItem('tm-state')||'null');if(L&&L.tournaments&&(L.updated||0)>(S.updated||0)){S=L;cache.clear();render()}}catch(e){}}
@@ -413,7 +470,12 @@ function initArt(){
 
 /* ---------- routing ---------- */
 function readHash(){var h=(location.hash||'').slice(1),p=h.split('-');
- if(p[0]==='t'&&p[1]&&S.tournaments.some(function(x){return x.id===p[1]})){ui.view='t';ui.tid=p[1];ui.tab=p[2]||'bracket'}
+ var ki=p.indexOf('k');
+ if(p[0]==='t'&&p[1]&&ki>1&&/^[a-f0-9]{32}$/.test(p[ki+1]||'')){KEYS[p[1]]=p[ki+1];delete VIEW[p[1]];lsSet('tm-keys',KEYS);lsSet('tm-view',VIEW);p=p.slice(0,ki);
+  try{history.replaceState(null,'','#'+p.join('-'))}catch(e){}
+  if(mode==='cloud')pull(p[1],true)}
+ var known=S.tournaments.some(function(x){return x.id===p[1]});
+ if(p[0]==='t'&&p[1]&&/^[a-z0-9]{6,24}$/.test(p[1])&&(known||mode==='loading'||mode==='cloud')){ui.view='t';ui.tid=p[1];ui.tab=p[2]||'bracket';if(!known&&mode==='cloud')pull(p[1])}
  else{ui.view='home';ui.tid=null}}
 function go(view,tid,tab){ui.view=view;ui.tid=tid||null;ui.tab=tab||'bracket';ui.filter='all';ui.q='';
  var h=view==='t'?'#t-'+tid+'-'+ui.tab:'#home';try{if(location.hash!==h)history.replaceState(null,'',h)}catch(e){try{location.hash=h}catch(e2){}}
@@ -423,7 +485,7 @@ function go(view,tid,tab){ui.view=view;ui.tid=tid||null;ui.tab=tab||'bracket';ui
 function topbar(){return '<div class="top"><button class="logo" data-act="home"><b>🏆</b>賽事大師</button><span id="sync" class="sync">連線中…</span></div>'}
 function render(){
  cache.clear();
- var h=topbar()+'<div class="wrap">'+(mode==='ro'?'<div class="banner">你目前是檢視模式：可以看賽程與積分，但修改不會被儲存。</div>':'')+(ui.view==='t'&&T()?tView():home())+'</div>';
+ var h=topbar()+'<div class="wrap">'+(ro()?'<div class="banner">'+(mode==='cloud'?'你正在觀看這個賽事，比分會自動更新。需要主辦人提供的「管理連結」才能修改。':'你目前是檢視模式：可以看賽程與積分，但修改不會被儲存。')+'</div>':'')+(ui.view==='t'&&T()?tView():(ui.view==='t'&&(mode==='loading'||loadingIds[ui.tid])?'<div class="empty"><div class="big">⏳</div>載入賽事中…</div>':home()))+'</div>';
  root.innerHTML=h;setSync();
  if(ui.tv)renderTV()}
 function home(){
@@ -431,7 +493,7 @@ function home(){
  if(!S.tournaments.length)return h+'<div class="empty"><div class="big">🏟️</div>還沒有賽事，按「建立新賽事」開始吧！</div>';
  h+='<div class="sec-title">我的賽事（'+S.tournaments.length+'）</div><div class="grid">';
  S.tournaments.slice().sort(function(a,b){return b.created-a.created}).forEach(function(t){var st=stats(t),ch=champion(t);
-  h+='<div class="card tcard" data-act="open" data-t="'+t.id+'"><div class="row"><span class="chip acc">'+FMT[t.format]+'</span><span class="chip">'+esc(t.sport)+'</span>'+(ch?'<span class="chip win">已完賽</span>':'')+'</div><h3>'+esc(t.name)+'</h3><div class="muted">'+t.participants.length+' 隊 · '+st.done+'/'+st.tot+' 場完成'+(ch?' · 冠軍 '+pn(t,ch):'')+'</div><div class="bar"><i style="width:'+(st.tot?Math.round(st.done/st.tot*100):0)+'%"></i></div></div>'});
+  h+='<div class="card tcard" data-act="open" data-t="'+t.id+'"><div class="row"><span class="chip acc">'+FMT[t.format]+'</span><span class="chip">'+esc(t.sport)+'</span>'+(ch?'<span class="chip win">已完賽</span>':'')+(isOwn(t)?'':'<span class="chip">👀 觀看中</span>')+'</div><h3>'+esc(t.name)+'</h3><div class="muted">'+t.participants.length+' 隊 · '+st.done+'/'+st.tot+' 場完成'+(ch?' · 冠軍 '+pn(t,ch):'')+'</div><div class="bar"><i style="width:'+(st.tot?Math.round(st.done/st.tot*100):0)+'%"></i></div></div>'});
  return h+'</div>'}
 function tabsFor(t){
  var b={se:'對戰樹',de:'對戰樹',rr:'對戰表',swiss:'配對',groups:'淘汰賽'}[t.format];
@@ -454,7 +516,7 @@ function card(t,m){
  if(o.skip)return '<div class="mc skip">'+roundLabel(t,m)+'<br>不需重賽</div>';
  var pl=playable(t,m);
  var row=function(p,sc){var cls=o.done&&o.w===p?'win':(o.done&&o.l===p?'lose':'');if(o.bye&&o.w===p)cls='win';return '<div class="mr '+cls+'"><span class="nm">'+pn(t,p)+'</span><span class="sc">'+(sc==null?'':sc)+'</span></div>'};
- return '<div class="mc '+(pl&&mode!=='ro'?'click':'')+'" '+(pl&&mode!=='ro'?'data-act="score" data-m="'+m.id+'"':'')+'><div class="mh"><span>'+(cd[m.id]?'#'+cd[m.id]:'輪空')+(r&&r.pick&&r.sa===r.sb?' · 判定':'')+'</span><span>'+esc(schedTxt(t,m))+'</span></div>'+row(a,r?r.sa:null)+row(b,r?r.sb:null)+'</div>'}
+ return '<div class="mc '+(pl&&!ro()?'click':'')+'" '+(pl&&!ro()?'data-act="score" data-m="'+m.id+'"':'')+'><div class="mh"><span>'+(cd[m.id]?'#'+cd[m.id]:'輪空')+(r&&r.pick&&r.sa===r.sb?' · 判定':'')+'</span><span>'+esc(schedTxt(t,m))+'</span></div>'+row(a,r?r.sa:null)+row(b,r?r.sb:null)+'</div>'}
 function bracketCols(t,ms,labelFn){
  var rounds={};ms.forEach(function(m){var k=m.third?'x':m.round;(rounds[k]=rounds[k]||[]).push(m)});
  var keys=Object.keys(rounds).filter(function(k){return k!=='x'}).sort(function(a,b){return a-b});
@@ -474,14 +536,14 @@ function vBracket(t){
  if(t.format==='swiss'){
   var R=swissRoundNo(t),h='',cur=t.matches.filter(function(m){return m.round===R}),allDone=cur.every(function(m){var o=outcome(t,m);return o.done||o.bye});
   h+='<div class="row" style="margin-bottom:12px"><span class="chip">第 '+R+' / '+t.cfg.swissRounds+' 輪</span>';
-  if(R<t.cfg.swissRounds&&mode!=='ro')h+='<button class="btn pri sm" data-act="swissNext" '+(allDone?'':'disabled')+'>產生第 '+(R+1)+' 輪配對</button>'+(allDone?'':'<span class="muted">本輪比賽全部完成後才能產生下一輪</span>');
+  if(R<t.cfg.swissRounds&&!ro())h+='<button class="btn pri sm" data-act="swissNext" '+(allDone?'':'disabled')+'>產生第 '+(R+1)+' 輪配對</button>'+(allDone?'':'<span class="muted">本輪比賽全部完成後才能產生下一輪</span>');
   h+='</div>';
   for(var r=R;r>=1;r--){h+='<div class="blabel"><span></span>第 '+r+' 輪</div><div class="grid">'+t.matches.filter(function(m){return m.round===r}).map(function(m){return card(t,m)}).join('')+'</div>'}
   return h}
  if(t.format==='groups'){
   var ko=t.matches.filter(function(m){return m.stage==='ko'}),gm=t.matches.filter(function(m){return m.stage==='group'});
   var gDone=gm.every(function(m){return outcome(t,m).done}),hk='';
-  if(mode!=='ro')hk='<div class="row" style="margin-bottom:12px"><button class="btn pri sm" data-act="genKO" '+(gDone?'':'disabled')+'>'+(ko.length?'重新產生淘汰賽':'產生淘汰賽對戰樹')+'</button><span class="muted">'+(gDone?'每組前 '+t.cfg.adv+' 名晉級':'分組賽全部完成後即可產生（每組前 '+t.cfg.adv+' 名晉級）')+'</span></div>';
+  if(!ro())hk='<div class="row" style="margin-bottom:12px"><button class="btn pri sm" data-act="genKO" '+(gDone?'':'disabled')+'>'+(ko.length?'重新產生淘汰賽':'產生淘汰賽對戰樹')+'</button><span class="muted">'+(gDone?'每組前 '+t.cfg.adv+' 名晉級':'分組賽全部完成後即可產生（每組前 '+t.cfg.adv+' 名晉級）')+'</span></div>';
   if(!ko.length)return hk+'<div class="empty"><div class="big">🌳</div>淘汰賽尚未產生</div>';
   return hk+bracketCols(t,ko,function(m){return roundLabel(t,m).replace('淘汰賽 ','')})}
  return ''}
@@ -491,7 +553,7 @@ function crossTable(t){
   ps.forEach(function(q){if(p.id===q.id){h+='<td class="self"></td>';return}
    var cells=t.matches.filter(function(m){return (m.a.v===p.id&&m.b.v===q.id)||(m.a.v===q.id&&m.b.v===p.id)}).map(function(m){var r=validRes(t,m);if(!r)return{txt:'<span class="muted">·</span>',m:m};var mine=m.a.v===p.id?r.sa:r.sb,their=m.a.v===p.id?r.sb:r.sa;return{txt:mine+'-'+their,cls:mine>their?'w':mine<their?'ls':'',m:m}});
    var cls=cells.length===1?cells[0].cls||'':'';
-   h+='<td class="'+cls+'" '+(mode!=='ro'&&cells[0]?'data-act="score" data-m="'+cells[0].m.id+'" style="cursor:pointer"':'')+'>'+cells.map(function(c){return c.txt}).join('<br>')+'</td>'});
+   h+='<td class="'+cls+'" '+(!ro()&&cells[0]?'data-act="score" data-m="'+cells[0].m.id+'" style="cursor:pointer"':'')+'>'+cells.map(function(c){return c.txt}).join('<br>')+'</td>'});
   h+='</tr>'});
  return h+'</tbody></table></div><div class="note">點格子即可輸入比分。列為主隊視角，綠色代表勝、紅色代表負。</div>'}
 function vStandings(t){
@@ -514,23 +576,23 @@ function vSchedule(t){
   if(q){var s=sides(t,m);return [s[0],s[1]].some(function(x){return typeof x==='string'&&pnText(t,x).toLowerCase().indexOf(q)>=0})}return true});
  ms.sort(function(a,b){var sa=(t.sched||{})[a.id]||{},sb=(t.sched||{})[b.id]||{},ka=(sa.date||'9')+(sa.time||'9'),kb=(sb.date||'9')+(sb.time||'9');
   if(ka!==kb)return ka<kb?-1:1;return sortKey(a)-sortKey(b)||(cd[a.id]||0)-(cd[b.id]||0)});
- var h='<div class="filters">'+[['all','全部'],['todo','未完成'],['done','已完成']].map(function(f){return '<button class="fchip '+(ui.filter===f[0]?'on':'')+'" data-act="filter" data-f="'+f[0]+'">'+f[1]+'</button>'}).join('')+'<input class="search" id="q" placeholder="搜尋隊伍…" value="'+esc(ui.q)+'">'+(mode!=='ro'?'<button class="btn sm" data-act="autoSched">⏱ 自動排程</button>':'')+'</div>';
+ var h='<div class="filters">'+[['all','全部'],['todo','未完成'],['done','已完成']].map(function(f){return '<button class="fchip '+(ui.filter===f[0]?'on':'')+'" data-act="filter" data-f="'+f[0]+'">'+f[1]+'</button>'}).join('')+'<input class="search" id="q" placeholder="搜尋隊伍…" value="'+esc(ui.q)+'">'+(!ro()?'<button class="btn sm" data-act="autoSched">⏱ 自動排程</button>':'')+'</div>';
  if(!ms.length)return h+'<div class="empty">沒有符合的比賽</div>';
  h+='<div class="slist">';
  ms.forEach(function(m){var s=sides(t,m),o=outcome(t,m),r=validRes(t,m),sc=(t.sched||{})[m.id]||{},pl=playable(t,m);
   h+='<div class="srow"><div class="stime">'+(sc.time||sc.date?'<b>'+(sc.time||'--:--')+'</b>'+(sc.date?sc.date.slice(5).replace('-','/'):'')+(sc.court?' · '+esc(sc.court):''):'<b style="color:#b8bfcc">未排定</b>'+(sc.court?esc(sc.court):''))+'</div>'+
   '<div><div class="muted" style="margin-bottom:4px">#'+cd[m.id]+' · '+roundLabel(t,m)+'</div><div class="svs"><span class="a '+(o.done&&o.w===s[0]?'wn':'')+'">'+pn(t,s[0])+'</span><span class="s">'+(r?r.sa+' : '+r.sb:'vs')+'</span><span class="b '+(o.done&&o.w===s[1]?'wn':'')+'">'+pn(t,s[1])+'</span></div></div>'+
-  '<div class="sact">'+(mode!=='ro'?'<button class="btn sm" data-act="editSched" data-m="'+m.id+'">時間</button><button class="btn sm '+(pl&&!o.done?'pri':'')+'" data-act="score" data-m="'+m.id+'" '+(pl?'':'disabled')+'>'+(o.done?'修改':'比分')+'</button>':'')+'</div></div>'});
+  '<div class="sact">'+(!ro()?'<button class="btn sm" data-act="editSched" data-m="'+m.id+'">時間</button><button class="btn sm '+(pl&&!o.done?'pri':'')+'" data-act="score" data-m="'+m.id+'" '+(pl?'':'disabled')+'>'+(o.done?'修改':'比分')+'</button>':'')+'</div></div>'});
  return h+'</div>'}
 function hasResults(t){return Object.keys(t.results).length>0}
 function vPlayers(t){
- var locked=hasResults(t),ro=mode==='ro';
- var h='<div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="muted">'+(locked?'比賽已開始：可修改名稱；增減隊伍或調整種子需重新產生賽程。':'排列順序即為種子序，可上下調整。')+'</span>'+(ro?'':'<div class="row">'+(locked?'':'<button class="btn sm" data-act="shuffle">🔀 隨機種子</button>')+'<button class="btn sm" data-act="addP">＋ 新增</button></div>')+'</div><div class="plist">';
+ var locked=hasResults(t),isRo=ro();
+ var h='<div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="muted">'+(locked?'比賽已開始：可修改名稱；增減隊伍或調整種子需重新產生賽程。':'排列順序即為種子序，可上下調整。')+'</span>'+(isRo?'':'<div class="row">'+(locked?'':'<button class="btn sm" data-act="shuffle">🔀 隨機種子</button>')+'<button class="btn sm" data-act="addP">＋ 新增</button></div>')+'</div><div class="plist">';
  t.participants.forEach(function(p,i){var g=t.groups?t.groups.find(function(g){return g.ids.indexOf(p.id)>=0}):null;
-  h+='<div class="pitem"><span class="sd">'+(i+1)+'</span><input data-pid="'+p.id+'" class="pname" value="'+esc(p.name)+'" '+(ro?'disabled':'')+'>'+(g?'<span class="chip">'+g.name+' 組</span>':'')+'<button class="ib" data-act="player" data-p="'+p.id+'" title="比賽紀錄">📋</button>'+(ro||locked?'':'<button class="ib" data-act="mv" data-p="'+p.id+'" data-d="-1" '+(i===0?'disabled':'')+'>▲</button><button class="ib" data-act="mv" data-p="'+p.id+'" data-d="1" '+(i===t.participants.length-1?'disabled':'')+'>▼</button><button class="ib" data-act="delP" data-p="'+p.id+'">✕</button>')+'</div>'});
+  h+='<div class="pitem"><span class="sd">'+(i+1)+'</span><input data-pid="'+p.id+'" class="pname" value="'+esc(p.name)+'" '+(isRo?'disabled':'')+'>'+(g?'<span class="chip">'+g.name+' 組</span>':'')+'<button class="ib" data-act="player" data-p="'+p.id+'" title="比賽紀錄">📋</button>'+(isRo||locked?'':'<button class="ib" data-act="mv" data-p="'+p.id+'" data-d="-1" '+(i===0?'disabled':'')+'>▲</button><button class="ib" data-act="mv" data-p="'+p.id+'" data-d="1" '+(i===t.participants.length-1?'disabled':'')+'>▼</button><button class="ib" data-act="delP" data-p="'+p.id+'">✕</button>')+'</div>'});
  return h+'</div>'}
 function vSettings(t){
- if(mode==='ro')return '<div class="muted">檢視模式無法修改設定。</div>';
+ if(ro())return '<div class="muted">檢視模式無法修改設定。</div>'+(mode==='cloud'?'<div class="row" style="margin-top:12px"><button class="btn danger" data-act="delT">從我的清單移除</button></div>':'');
  var c=t.cfg;
  return '<div class="card"><label class="f">賽事名稱</label><input class="inp" id="s_name" value="'+esc(t.name)+'"><div class="two"><div><label class="f">運動項目</label><input class="inp" id="s_sport" value="'+esc(t.sport)+'"></div><div><label class="f">賽制</label><input class="inp" value="'+FMT[t.format]+'" disabled></div></div>'+
  (t.format==='se'||t.format==='de'?'':'<div class="three"><div><label class="f">勝場積分</label><input class="inp" type="number" step="0.5" id="s_win" value="'+c.win+'"></div><div><label class="f">和局積分</label><input class="inp" type="number" step="0.5" id="s_draw" value="'+c.draw+'"></div><div><label class="f">敗場積分</label><input class="inp" type="number" step="0.5" id="s_loss" value="'+c.loss+'"></div></div><label class="check"><input type="checkbox" id="s_ad" '+(c.allowDraw?'checked':'')+'>允許平手</label>')+
@@ -567,9 +629,9 @@ function createT(o){
   participants:o.names.map(function(n){return{id:uid(),name:n}}),
   cfg:{win:sp.win,draw:sp.draw,loss:sp.loss,allowDraw:sp.allowDraw,third:!!o.third,legs:o.legs||1,swissRounds:o.sr||Math.max(1,Math.ceil(Math.log(o.names.length)/Math.LN2)),groups:o.groups||2,adv:o.adv||2},
   matches:[],results:{},sched:{}};
- build(t);S.tournaments.push(t);return t}
+ build(t);S.tournaments.push(t);KEYS[t.id]=newKey();return t}
 function openScore(mid){
- var t=T(),m=byId(t,mid);if(!m||!playable(t,m)||mode==='ro')return;
+ var t=T(),m=byId(t,mid);if(!m||!playable(t,m)||ro())return;
  var s=sides(t,m),r=validRes(t,m),ko=!!KO[m.stage];
  modalCtx={mid:mid,ko:ko,a:s[0],b:s[1],pick:r&&r.pick||null};
  openModal('<h2>輸入比分</h2><div class="muted">#'+codes(t)[mid]+' · '+roundLabel(t,m)+(schedTxt(t,m)?' · '+esc(schedTxt(t,m)):'')+'</div>'+
@@ -682,11 +744,17 @@ var A={
   if(g('s_sr'))t.cfg.swissRounds=Math.max(swissRoundNo(t),parseInt(g('s_sr').value)||1);save();toast('設定已儲存')},
  rebuild:function(){confirmBox('重新產生賽程？','所有比分都會被清除，且無法復原。',function(){build(T());save();toast('賽程已重新產生')},'重新產生')},
  clearRes:function(){confirmBox('清除所有比分？','對戰樹與積分榜將回到初始狀態。',function(){var t=T();t.results={};if(t.format==='groups')t.matches=t.matches.filter(function(m){return m.stage!=='ko'});if(t.format==='swiss'){t.matches=[];swissNext(t)}save()},'清除')},
- delT:function(){var t=T();confirmBox('刪除「'+esc(t.name)+'」？','賽事與所有比分都會刪除，無法復原。',function(){S.tournaments=S.tournaments.filter(function(x){return x.id!==t.id});go('home');save()},'刪除')},
+ delT:function(){var t=T(),own=isOwn(t);confirmBox((own?'刪除':'移除')+'「'+esc(t.name)+'」？',own?'賽事與所有比分都會刪除'+(mode==='cloud'?'（包含雲端資料，觀看連結也會失效）':'')+'，無法復原。':'只會從你的清單移除，不影響主辦人的賽事。',function(){S.tournaments=S.tournaments.filter(function(x){return x.id!==t.id});if(mode==='cloud')cloudDelete(t.id);go('home');save()},own?'刪除':'移除')},
  export:function(){var txt=JSON.stringify(T(),null,1);copy(txt,'已複製賽事資料，可貼到其他地方保存或匯入')},
  import:function(){openModal('<h2>匯入賽事</h2><div class="muted">貼上先前「複製賽事資料」得到的 JSON。</div><textarea class="inp" id="imp" style="margin-top:10px"></textarea><div class="err" id="imperr"></div><div class="mfoot"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="impOk">匯入</button></div>')},
- impOk:function(){try{var o=JSON.parse(document.getElementById('imp').value),list=o.tournaments||[o];list.forEach(function(t){if(!t.participants||!t.matches||!t.format)throw 0;if(S.tournaments.some(function(x){return x.id===t.id}))t.id=uid();t.results=t.results||{};t.sched=t.sched||{};S.tournaments.push(t)});closeModal();save();toast('匯入 '+list.length+' 個賽事')}catch(e){document.getElementById('imperr').textContent='格式不正確，請確認貼上的是完整 JSON'}},
- share:function(){copy(location.href,mode==='shared'?'已複製連結。記得在 claude.ai 的分享設定開放給對方檢視':'已複製連結（資料存在這台裝置的瀏覽器，可用「複製賽事資料」轉移）')},
+ impOk:function(){try{var o=JSON.parse(document.getElementById('imp').value),list=o.tournaments||[o];list.forEach(function(t){if(!t.participants||!t.matches||!t.format)throw 0;if(mode==='cloud'||S.tournaments.some(function(x){return x.id===t.id}))t.id=uid();KEYS[t.id]=newKey();delete t.updated;t.results=t.results||{};t.sched=t.sched||{};S.tournaments.push(t)});closeModal();save();toast('匯入 '+list.length+' 個賽事')}catch(e){document.getElementById('imperr').textContent='格式不正確，請確認貼上的是完整 JSON'}},
+ share:function(){var t=T();
+  if(mode!=='cloud'){copy(location.href,mode==='shared'?'已複製連結。記得在 claude.ai 的分享設定開放給對方檢視':'已複製連結（資料存在這台裝置的瀏覽器，可用「複製賽事資料」轉移）');return}
+  var base=location.origin+location.pathname+'#t-'+t.id+'-'+tabsFor(t)[0][0],own=!!KEYS[t.id];
+  openModal('<h2>分享賽事</h2><label class="f">👀 觀看連結（給選手、觀眾）</label><div class="row" style="flex-wrap:nowrap"><input class="inp" readonly value="'+esc(base)+'" onclick="this.select()"><button class="btn sm" data-act="copyLink" data-u="'+esc(base)+'">複製</button></div><div class="muted" style="margin-top:6px">打開就能看對戰樹、賽程與積分，每 8 秒自動更新，不能修改。</div>'+
+   (own?'<label class="f" style="margin-top:18px">🔑 管理連結（給共同主辦、計分人員）</label><div class="row" style="flex-wrap:nowrap"><input class="inp" readonly value="'+esc(base+'-k-'+KEYS[t.id])+'" onclick="this.select()"><button class="btn sm" data-act="copyLink" data-u="'+esc(base+'-k-'+KEYS[t.id])+'">複製</button></div><div class="note">⚠️ 拿到管理連結的人可以修改比分與設定，請只給信任的人。你換手機或電腦時，也用這個連結打開就能繼續管理。</div>':'')+
+   '<div class="mfoot"><button class="btn" data-act="close">關閉</button></div>')},
+ copyLink:function(el){copy(el.dataset.u,'已複製連結')},
  tv:function(){ui.tv=true;renderTV();clearInterval(tvTimer);tvTimer=setInterval(function(){if(ui.tv){cache.clear();renderTV()}},20000);try{var p=document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();if(p&&p.catch)p.catch(function(){})}catch(e){}},
  tvClose:closeTV
 };

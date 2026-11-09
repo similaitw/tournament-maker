@@ -411,7 +411,7 @@ function buildDoc(){
  var E='</'+'script>';
  return '<!DOCTYPE html>\n<html lang="zh-Hant-TW">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<title>賽事大師｜對戰樹與即時積分</title>\n<link rel="preconnect" href="https://fonts.googleapis.com">\n<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">\n<style id="app-style">'+style+'</style>\n</head>\n<body>\n<div id="root"></div>\n<script type="application/json" id="state">'+json+E+'\n<script id="app-script">'+code+E+'\n</body>\n</html>\n'}
 /* ----- 雲端模式（Vercel Blob） ----- */
-var KEYS={},VIEW={},synced={},cloudTimer=null,cloudBusy=false,cloudErr=false,loadingIds={};
+var HASPW={},PENDPW={},KEYS={},VIEW={},synced={},cloudTimer=null,cloudBusy=false,cloudErr=false,loadingIds={};
 try{KEYS=JSON.parse(localStorage.getItem('tm-keys')||'{}')||{}}catch(e){KEYS={}}
 try{VIEW=JSON.parse(localStorage.getItem('tm-view')||'{}')||{}}catch(e){VIEW={}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
@@ -429,7 +429,7 @@ function cloudSync(){
  fetch('/api/t?id='+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:KEYS[id],t:JSON.parse(sent)})})
  .then(function(r){return r.json().catch(function(){return{}}).then(function(j){return{s:r.status,j:j}})})
  .then(function(x){cloudBusy=false;
-  if(x.s===200){cloudErr=false;var cur=S.tournaments.find(function(y){return y.id===id});if(cur){var ch=tJSON(cur)!==sent;cur.updated=x.j.updated;synced[id]=ch?'':tJSON(cur)}lsSave();cloudSync()}
+  if(x.s===200){cloudErr=false;var cur=S.tournaments.find(function(y){return y.id===id});if(cur){var ch=tJSON(cur)!==sent;cur.updated=x.j.updated;synced[id]=ch?'':tJSON(cur)}lsSave();if(PENDPW[id]){var pp=PENDPW[id];delete PENDPW[id];setPw(id,pp).then(function(r){toast(r.s===200?'管理密碼已設定':'管理密碼設定失敗，請到「設定」重設');render()})}cloudSync()}
   else if(x.s===409){cloudErr=false;toast('另一台裝置剛更新過，已載入最新資料');pull(id,true).then(cloudSync)}
   else if(x.s===403){delete KEYS[id];VIEW[id]=1;lsSave();toast('沒有這個賽事的管理權限');render()}
   else if(x.s===413){cloudErr=true;setSync();toast('賽事資料太大，無法存到雲端')}
@@ -441,6 +441,7 @@ function pull(id,force){
   delete loadingIds[id];
   if(x.s===404){if(!S.tournaments.some(function(t){return t.id===id})&&ui.tid===id){toast('找不到這個賽事');go('home')}return 404}
   if(x.s!==200||!x.j.t)return x.s;
+  var hp=!!x.j.hasPw;if(HASPW[id]!==hp){HASPW[id]=hp;if(ui.tid===id&&!document.getElementById('ov'))setTimeout(render,0)}
   if(KEYS[id]&&!x.j.canEdit){delete KEYS[id];VIEW[id]=1}
   var i=S.tournaments.findIndex(function(t){return t.id===id}),loc=S.tournaments[i],changed=false;
   if(i<0){S.tournaments.push(x.j.t);if(!KEYS[id])VIEW[id]=1;changed=true}
@@ -452,6 +453,8 @@ function pull(id,force){
   return 200}).catch(function(){delete loadingIds[id];return 0})}
 function cloudDelete(id){var k=KEYS[id];delete KEYS[id];delete VIEW[id];delete synced[id];lsSave();
  if(k)fetch('/api/t?id='+id,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k})}).catch(function(){})}
+function apiPost(id,action,data){return fetch('/api/t?id='+id+'&action='+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}).then(function(r){return r.json().catch(function(){return{}}).then(function(j){return{s:r.status,j:j}})}).catch(function(){return{s:0,j:{}}})}
+function setPw(id,pw){return apiPost(id,'setpw',{key:KEYS[id],password:pw}).then(function(x){if(x.s===200)HASPW[id]=!!x.j.hasPw;return x})}
 function startCloud(){
  mode='cloud';
  try{var L=JSON.parse(localStorage.getItem('tm-state')||'null');if(L&&L.tournaments)S=L}catch(e){}
@@ -510,7 +513,7 @@ applyFs();
 function topbar(){return '<div class="top"><button class="logo" data-act="home"><b>🏆</b>賽事大師</button><span id="sync" class="sync">連線中…</span><button class="fsbtn" data-act="fs" title="切換字級">Aa '+FSL[fs]+'</button></div>'}
 function render(){
  cache.clear();
- var h=topbar()+'<div class="wrap">'+(ro()?'<div class="banner">'+(mode==='cloud'?'你正在觀看這個賽事，比分會自動更新。需要主辦人提供的「管理連結」才能修改。':'你目前是檢視模式：可以看賽程與積分，但修改不會被儲存。')+'</div>':'')+(ui.view==='t'&&T()?tView():(ui.view==='t'&&(mode==='loading'||loadingIds[ui.tid])?'<div class="empty"><div class="big">⏳</div>載入賽事中…</div>':home()))+'</div>';
+ var h=topbar()+'<div class="wrap">'+(ro()?'<div class="banner">'+(mode==='cloud'?'你正在觀看這個賽事，比分會自動更新。'+(HASPW[ui.tid]?'主辦人可以 <button class="btn sm" data-act="pwLogin" style="margin-left:4px">🔑 輸入管理密碼</button>':'需要主辦人提供的「管理連結」才能修改。'):'你目前是檢視模式：可以看賽程與積分，但修改不會被儲存。')+'</div>':'')+(ui.view==='t'&&T()?tView():(ui.view==='t'&&(mode==='loading'||loadingIds[ui.tid])?'<div class="empty"><div class="big">⏳</div>載入賽事中…</div>':home()))+'</div>';
  root.innerHTML=h;setSync();
  if(ui.tv)renderTV()}
 function home(){
@@ -623,6 +626,7 @@ function vSettings(t){
  (t.format==='se'||t.format==='de'?'':'<div class="three"><div><label class="f">勝場積分</label><input class="inp" type="number" step="0.5" id="s_win" value="'+c.win+'"></div><div><label class="f">和局積分</label><input class="inp" type="number" step="0.5" id="s_draw" value="'+c.draw+'"></div><div><label class="f">敗場積分</label><input class="inp" type="number" step="0.5" id="s_loss" value="'+c.loss+'"></div></div><label class="check"><input type="checkbox" id="s_ad" '+(c.allowDraw?'checked':'')+'>允許平手</label>')+
  (t.format==='swiss'?'<label class="f">總輪數</label><input class="inp" type="number" min="1" id="s_sr" value="'+c.swissRounds+'">':'')+
  '<div class="mfoot"><button class="btn pri" data-act="saveSettings">儲存設定</button></div></div>'+
+ (mode==='cloud'?'<div class="sec-title">管理權限</div><div class="card"><div class="row" style="justify-content:space-between"><b>🔑 管理密碼</b>'+(HASPW[t.id]?'<span class="chip win">已設定</span>':'<span class="chip">未設定</span>')+'</div><div class="muted" style="margin-top:6px;line-height:1.6">設定後，任何人打開觀看連結、輸入這組密碼，就能在那台裝置管理此賽事（不需要傳管理連結）。</div><div class="two" style="margin-top:4px"><div><label class="f">'+(HASPW[t.id]?'新密碼':'密碼')+'（至少 4 個字）</label><input class="inp" type="password" id="pw1" autocomplete="new-password"></div><div><label class="f">再輸入一次</label><input class="inp" type="password" id="pw2" autocomplete="new-password"></div></div><div class="err" id="pwerr"></div><div class="row"><button class="btn pri" data-act="pwSet">'+(HASPW[t.id]?'更改密碼':'設定密碼')+'</button>'+(HASPW[t.id]?'<button class="btn danger" data-act="pwDel">移除密碼</button>':'')+'</div><div class="note">⚠️ 如果管理連結或密碼外流，可以按「重設管理權限」：舊的管理連結和密碼全部失效，只有這台裝置保留管理權限，之後再重新設定密碼。<div style="margin-top:8px"><button class="btn sm danger" data-act="rotate">重設管理權限</button></div></div></div>':'')+
  '<div class="sec-title">資料</div><div class="card"><div class="row"><button class="btn" data-act="export">📤 複製賽事資料（JSON）</button><button class="btn" data-act="rebuild">🔄 重新產生賽程</button><button class="btn danger" data-act="clearRes">清除所有比分</button><button class="btn danger" data-act="delT">刪除賽事</button></div><div class="note">「重新產生賽程」會依目前參賽者與種子序重排，並清除所有比分。</div></div>'}
 
 /* ---------- modals ---------- */
@@ -639,6 +643,7 @@ function openNew(){
  '<div id="n_opts"></div>'+
  '<label class="f">參賽隊伍／選手（一行一個）<span id="n_cnt" class="muted" style="font-weight:400;margin-left:6px">0 隊</span></label><textarea class="inp" id="n_ps" placeholder="一年一班&#10;一年二班&#10;一年三班&#10;一年四班"></textarea>'+
  '<label class="check"><input type="checkbox" id="n_shuf">隨機排列種子</label>'+
+ (mode==='cloud'?'<label class="f">管理密碼（選填，至少 4 個字）</label><input class="inp" type="password" id="n_pw" autocomplete="new-password" placeholder="設定後可在任何裝置輸入密碼來管理">':'')+
  '<div class="err" id="n_err"></div><div class="mfoot"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="create">建立賽事</button></div>');
  renderNewOpts()}
 function renderNewOpts(){var f=newCfg.format,h='',el=document.getElementById('n_opts');if(!el)return;
@@ -725,7 +730,8 @@ var A={
   var g=document.getElementById('n_g'),adv=document.getElementById('n_adv'),sr=document.getElementById('n_sr'),legs=document.getElementById('n_legs'),th=document.getElementById('n_third');
   var o={name:name,sport:document.getElementById('n_sport').value,format:f,names:names,third:th?th.checked:false,legs:legs?Number(legs.value):1,sr:sr&&sr.value?Math.max(1,parseInt(sr.value)):0,groups:g?Math.max(1,parseInt(g.value)||2):2,adv:adv?Math.max(1,parseInt(adv.value)||2):2};
   if(f==='groups'){if(names.length/o.groups<2){err.textContent='每組至少要 2 隊，請減少組數';return}var minG=Math.floor(names.length/o.groups);if(o.adv>minG){err.textContent='晉級名額不能多於每組隊數（'+minG+'）';return}}
-  var t=createT(o);closeModal();save();go('t',t.id)},
+  var npw=document.getElementById('n_pw');if(npw&&npw.value&&npw.value.length<4){err.textContent='管理密碼至少要 4 個字';return}
+  var t=createT(o);if(npw&&npw.value)PENDPW[t.id]=npw.value;closeModal();save();go('t',t.id)},
  score:function(el){openScore(el.dataset.m)},
  step:function(el){var i=document.getElementById(el.dataset.k);i.value=Math.max(0,(Number(i.value)||0)+Number(el.dataset.d));updPick()},
  pick:function(el){modalCtx.pick=el.dataset.w==='a'?modalCtx.a:modalCtx.b;updPick()},
@@ -780,6 +786,18 @@ var A={
    (own?'<label class="f" style="margin-top:18px">🔑 管理連結（給共同主辦、計分人員）</label><div class="row" style="flex-wrap:nowrap"><input class="inp" readonly value="'+esc(base+'-k-'+KEYS[t.id])+'" onclick="this.select()"><button class="btn sm" data-act="copyLink" data-u="'+esc(base+'-k-'+KEYS[t.id])+'">複製</button></div><div class="note">⚠️ 拿到管理連結的人可以修改比分與設定，請只給信任的人。你換手機或電腦時，也用這個連結打開就能繼續管理。</div>':'')+
    '<div class="mfoot"><button class="btn" data-act="close">關閉</button></div>')},
  copyLink:function(el){copy(el.dataset.u,'已複製連結')},
+ pwLogin:function(){var t=T();openModal('<h2>輸入管理密碼</h2><div class="muted">「'+esc(t.name)+'」</div><label class="f">管理密碼</label><input class="inp" type="password" id="lpw" autocomplete="current-password"><div class="err" id="lerr"></div><div class="mfoot"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="pwLoginOk">登入管理</button></div>');setTimeout(function(){var i=document.getElementById('lpw');if(i)i.focus()},50)},
+ pwLoginOk:function(el){var id=ui.tid,pw=document.getElementById('lpw').value,err=document.getElementById('lerr');if(!pw){err.textContent='請輸入密碼';return}
+  el.disabled=true;err.textContent='驗證中…';
+  apiPost(id,'login',{password:pw}).then(function(x){el.disabled=false;
+   if(x.s===200&&x.j.key){KEYS[id]=x.j.key;delete VIEW[id];lsSave();closeModal();pull(id,true).then(function(){render()});toast('已取得管理權限')}
+   else err.textContent=x.s===401?'密碼錯誤':'登入失敗，請稍後再試'})},
+ pwSet:function(el){var id=ui.tid,a=document.getElementById('pw1').value,b=document.getElementById('pw2').value,err=document.getElementById('pwerr');
+  if(a.length<4){err.textContent='密碼至少要 4 個字';return}if(a!==b){err.textContent='兩次輸入的密碼不一樣';return}
+  if(synced[id]===undefined||synced[id]!==tJSON(T())){err.textContent='資料還在同步中，請稍等幾秒再試';cloudSync();return}
+  el.disabled=true;setPw(id,a).then(function(x){el.disabled=false;if(x.s===200){render();toast('管理密碼已設定')}else err.textContent='設定失敗，請稍後再試'})},
+ pwDel:function(){var id=ui.tid;confirmBox('移除管理密碼？','移除後只能用管理連結取得管理權限。',function(){setPw(id,null).then(function(x){render();toast(x.s===200?'已移除管理密碼':'移除失敗')})},'移除')},
+ rotate:function(){var id=ui.tid;confirmBox('重設管理權限？','舊的管理連結和管理密碼都會失效，其他裝置會變成只能觀看。只有這台裝置保留管理權限。',function(){var nk=newKey();apiPost(id,'rotate',{key:KEYS[id],newKey:nk}).then(function(x){if(x.s===200){KEYS[id]=nk;HASPW[id]=false;lsSave();render();toast('已重設，記得重新設定密碼或分享新的管理連結')}else toast('重設失敗，請稍後再試')})},'重設')},
  tv:function(){ui.tv=true;renderTV();clearInterval(tvTimer);tvTimer=setInterval(function(){if(ui.tv){cache.clear();renderTV()}},20000);try{var p=document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();if(p&&p.catch)p.catch(function(){})}catch(e){}},
  tvClose:closeTV,
  fs:function(){fs=FS[(FS.indexOf(fs)+1)%FS.length];try{localStorage.setItem('tm-fs',fs)}catch(e){}applyFs();render();toast('字級：'+FSL[fs])}
@@ -794,7 +812,8 @@ document.addEventListener('input',function(e){
  if(e.target.id==='n_sport'){newCfg.sport=e.target.value}
  if(e.target.id==='q'){ui.q=e.target.value;var pos=e.target.selectionStart;render();var q=document.getElementById('q');if(q){q.focus();try{q.setSelectionRange(pos,pos)}catch(x){}}}});
 document.addEventListener('change',function(e){if(e.target.classList.contains('pname')){var t=T(),p=pmap(t)[e.target.dataset.pid],v=e.target.value.trim();if(p&&v&&v!==p.name){p.name=v;save()}}});
-document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(document.getElementById('ov'))closeModal();else if(ui.tv)closeTV()}if(e.key==='Enter'&&document.getElementById('sa')&&(e.target.id==='sa'||e.target.id==='sb'))A.saveScore()});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(document.getElementById('ov'))closeModal();else if(ui.tv)closeTV()}if(e.key==='Enter'&&e.target.id==='lpw'){var lb=document.querySelector('[data-act="pwLoginOk"]');if(lb)A.pwLoginOk(lb)}
+ if(e.key==='Enter'&&document.getElementById('sa')&&(e.target.id==='sa'||e.target.id==='sb'))A.saveScore()});
 window.addEventListener('hashchange',function(){readHash();render()});
 
 readHash();render();initArt();

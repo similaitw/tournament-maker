@@ -24,11 +24,20 @@
 - 「重設所有權限」：舊連結、密碼、計分員全部失效
 - 密碼不保存明碼：以 scrypt 推導金鑰，用 AES-256-GCM 加密管理金鑰
 
+## 超級管理後台（網址加上 `#admin`）
+- 以環境變數 `ADMIN_PASSWORD` 的超級管理密碼登入（12 小時有效）
+- 賽事總覽：名稱、賽制、進度、來源建立碼、最後更新、大小；可刪除、可替忘記密碼的主辦**重設主辦密碼**
+- **建立碼**：開啟後必須輸入有效建立碼才能建立新賽事（伺服器端檢查），可新增／停用／刪除並記錄使用次數
+- **自動清理**：超過設定天數未更新的賽事，每天凌晨 3 點（台灣時間）由 Vercel Cron 刪除（需 `CRON_SECRET`）
+
 ## 雲端儲存（Vercel Blob）
 - 賽事資料存在 Vercel Blob 私人儲存區（`api/t.js`），換裝置也能同步
-- 需要環境變數 `BLOB_READ_WRITE_TOKEN`（在 Vercel 連接 Blob store 後自動產生）
+- 環境變數：`BLOB_READ_WRITE_TOKEN`（連接 Blob store 後自動產生）、`ADMIN_PASSWORD`（超級管理密碼，自行設定）、`CRON_SECRET`（排程驗證）
 - 沒有雲端 API 時（例如直接開啟 HTML 檔），自動改用瀏覽器 localStorage；範例賽事只存在本機
 
 ## 檔案
 - `index.html`：整個前端（無需建置）
-- `api/t.js`：讀寫賽事的 Serverless Function
+- `api/t.js`：讀寫賽事、權限
+- `api/admin.js`：超級管理後台
+- `api/_lib.js`：共用工具（加密、儲存）
+- `vercel.json`：自動清理排程

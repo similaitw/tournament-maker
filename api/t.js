@@ -22,7 +22,9 @@ import {
 
 // 計分員可以改的欄位；其他欄位必須與原本完全相同
 const SCORER_FIELDS = ['results', 'sched', 'matches', 'updated'];
-const lockedPart = (t) => { const o = { ...t }; SCORER_FIELDS.forEach((f) => delete o[f]); return stable(o); };
+const strip = (o) => { const x = { ...o }; SCORER_FIELDS.forEach((f) => delete x[f]); return x; };
+// 賽事可能包含多個報名組別（cats）：每個組別都只允許改比分、時間、對戰
+const lockedPart = (t) => { const o = strip(t); if (Array.isArray(o.cats)) o.cats = o.cats.map(strip); return stable(o); };
 
 function roleOf(doc, key) {
   if (!key) return null;

@@ -59,11 +59,14 @@ async function summaries() {
       const r = await readJSON(b.pathname);
       if (!r) return null;
       const t = r.doc.t || {};
-      const ms = Array.isArray(t.matches) ? t.matches : [];
+      const cats = Array.isArray(t.cats) ? t.cats : [t];
+      const sum = (f) => cats.reduce((a, c) => a + f(c), 0);
       return {
-        id, name: t.name || '(未命名)', sport: t.sport || '', format: t.format || '',
-        participants: Array.isArray(t.participants) ? t.participants.length : 0,
-        matches: ms.length, results: t.results ? Object.keys(t.results).length : 0,
+        id, name: t.name || '(未命名)', sport: [...new Set(cats.map((c) => c.sport).filter(Boolean))].join('、'),
+        format: cats.length > 1 ? 'multi' : (cats[0].format || ''), cats: cats.length,
+        participants: sum((c) => (Array.isArray(c.participants) ? c.participants.length : 0)),
+        matches: sum((c) => (Array.isArray(c.matches) ? c.matches.length : 0)),
+        results: sum((c) => (c.results ? Object.keys(c.results).length : 0)),
         created: t.created || null, updated: r.doc.updated || null, size: r.size,
         hasPw: !!r.doc.pw, hasScorer: !!r.doc.scorerHash, createdWith: r.doc.createdWith || null,
       };

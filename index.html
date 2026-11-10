@@ -189,6 +189,16 @@ textarea.inp{min-height:150px;resize:vertical;line-height:1.6}
  .two,.three{grid-template-columns:1fr 1fr}
  .thead h1{font-size:21px}
 }
+/* 場地 */
+.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.vcell{display:flex;align-items:center;gap:6px}.vcell .sd{font-family:var(--num);font-weight:700;color:var(--mute);width:22px;text-align:right}
+.sgrid{table-layout:fixed}.sgrid th:first-child,.sgrid td.gt{width:72px}.sgrid td{vertical-align:top;padding:6px;white-space:normal}
+.sgrid td.gt{font-family:var(--num);font-weight:700;font-size:18px;vertical-align:middle}
+.gcell{border:1px solid var(--line);border-left:5px solid #94a3b8;border-radius:9px;padding:6px 8px;background:#fff;text-align:left;cursor:default}
+.gcell[data-act]{cursor:pointer}.gcell[data-act]:hover{box-shadow:0 0 0 3px var(--acc2)}
+.gcell.done{background:#f6fbf8}.gcell .gh{font-size:11px;color:var(--mute);margin-bottom:3px}
+.gcell .gv{display:flex;gap:6px;align-items:center;justify-content:space-between;font-size:14px}.gcell .gv b{font-family:var(--num);font-size:16px}.gcell .wn{font-weight:800}
+.gcell.g0{border-left-color:#e8590c}.gcell.g1{border-left-color:#1c7ed6}.gcell.g2{border-left-color:#2f9e44}.gcell.g3{border-left-color:#ae3ec9}.gcell.g4{border-left-color:#8d5524}.gcell.g5{border-left-color:#0c8599}.gcell.g6{border-left-color:#c2255c}.gcell.g7{border-left-color:#5c940d}
 /* 後台 */
 .admlogin{max-width:460px;margin:30px auto}
 .admstats{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
@@ -365,7 +375,9 @@ function outcome(t,m){
  cache.set(k,o);return o}
 function playable(t,m){var s=sides(t,m);return typeof s[0]==='string'&&typeof s[1]==='string'&&s[0]!=='SKIP'}
 function stats(t){var tot=0,done=0;t.matches.forEach(function(m){var o=outcome(t,m);if(o.bye||o.skip)return;tot++;if(o.done)done++});return{tot:tot,done:done}}
-function codes(t){var k='c'+t.id;if(!cache.has(k)){var o={},n=0;t.matches.forEach(function(m){var oc=outcome(t,m);if(oc.bye)return;o[m.id]=++n});cache.set(k,o)}return cache.get(k)}
+function codes(t){var k='c'+t.id;if(!cache.has(k)){var o={},n=0,list=t.matches.filter(function(m){return !outcome(t,m).bye});
+ list.sort(function(a,b){var ka=schedKey(t,a),kb=schedKey(t,b);if(ka&&kb&&ka!==kb)return ka<kb?-1:1;if(ka&&!kb)return -1;if(!ka&&kb)return 1;if(ka&&kb){var ca=courtIdx(t,t.sched[a.id].court),cb=courtIdx(t,t.sched[b.id].court);if(ca!==cb)return ca-cb}return playCmp(a,b)});
+ list.forEach(function(m){o[m.id]=++n});cache.set(k,o)}return cache.get(k)}
 
 function roundLabel(t,m){
  if(m.stage==='main'||m.stage==='ko'||m.stage==='wb'){
@@ -668,9 +680,11 @@ function vSchedule(t){
  ms=ms.filter(function(m){var o=outcome(t,m);if(ui.filter==='done'&&!o.done)return false;if(ui.filter==='todo'&&o.done)return false;
   if(q){var s=sides(t,m);return [s[0],s[1]].some(function(x){return typeof x==='string'&&pnText(t,x).toLowerCase().indexOf(q)>=0})}return true});
  ms.sort(function(a,b){var sa=(t.sched||{})[a.id]||{},sb=(t.sched||{})[b.id]||{},ka=(sa.date||'9')+(sa.time||'9'),kb=(sb.date||'9')+(sb.time||'9');
-  if(ka!==kb)return ka<kb?-1:1;return sortKey(a)-sortKey(b)||(cd[a.id]||0)-(cd[b.id]||0)});
- var h='<div class="filters">'+[['all','全部'],['todo','未完成'],['done','已完成']].map(function(f){return '<button class="fchip '+(ui.filter===f[0]?'on':'')+'" data-act="filter" data-f="'+f[0]+'">'+f[1]+'</button>'}).join('')+'<input class="search" id="q" placeholder="搜尋參賽者…" value="'+esc(ui.q)+'">'+(!ro()?'<button class="btn sm" data-act="autoSched">⏱ 自動排程</button>':'')+'</div>';
+  if(ka!==kb)return ka<kb?-1:1;return (cd[a.id]||0)-(cd[b.id]||0)});
+ var h='<div class="filters">'+[['all','全部'],['todo','未完成'],['done','已完成']].map(function(f){return '<button class="fchip '+(ui.filter===f[0]?'on':'')+'" data-act="filter" data-f="'+f[0]+'">'+f[1]+'</button>'}).join('')+'<input class="search" id="q" placeholder="搜尋參賽者…" value="'+esc(ui.q)+'">'+(!ro()?'<button class="btn sm" data-act="autoSched">⏱ 自動排程</button>':'')+(canAdmin()?'<button class="btn sm" data-act="venue">🏟 場地</button>':'')+'</div>'+
+ '<div class="filters"><span class="muted">顯示方式</span><button class="fchip '+(ui.sview!=='grid'?'on':'')+'" data-act="sview" data-v="list">依時間</button><button class="fchip '+(ui.sview==='grid'?'on':'')+'" data-act="sview" data-v="grid">場地表</button></div>';
  if(!ms.length)return h+'<div class="empty">沒有符合的比賽</div>';
+ if(ui.sview==='grid')return h+schedGrid(t,ms);
  h+='<div class="slist">';
  ms.forEach(function(m){var s=sides(t,m),o=outcome(t,m),r=validRes(t,m),sc=(t.sched||{})[m.id]||{},pl=playable(t,m);
   h+='<div class="srow"><div class="stime">'+(sc.time||sc.date?'<b>'+(sc.time||'--:--')+'</b>'+(sc.date?sc.date.slice(5).replace('-','/'):'')+(sc.court?' · '+esc(sc.court):''):'<b style="color:#b8bfcc">未排定</b>'+(sc.court?esc(sc.court):''))+'</div>'+
@@ -704,6 +718,7 @@ function vSettings(t){
  (t.format==='swiss'?'<label class="f">總輪數</label><input class="inp" type="number" min="1" id="s_sr" value="'+c.swissRounds+'">':'')+
  '<div class="mfoot"><button class="btn pri" data-act="saveSettings">儲存設定</button></div></div>'+
  (mode==='cloud'?permSection(t):'')+
+ '<div class="sec-title">場地</div><div class="card"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span>🏟 '+venueSummary(t)+'</span><button class="btn" data-act="venue">修改場地</button></div></div>'+
  '<div class="sec-title">資料</div><div class="card"><div class="row"><button class="btn" data-act="export">📤 複製賽事資料（JSON）</button><button class="btn" data-act="rebuild">🔄 重新產生賽程</button><button class="btn danger" data-act="clearRes">清除所有比分</button><button class="btn danger" data-act="delT">刪除賽事</button></div><div class="note">「重新產生賽程」會依目前參賽者與種子序重排，並清除所有比分。</div></div>'}
 
 /* ---------- 樹狀圖與多邊形圖 ---------- */
@@ -881,6 +896,71 @@ var ADMA={
   el.disabled=true;admApi('resetpw','POST',{id:id,password:a}).then(function(x){el.disabled=false;if(x.s===200){closeModal();var r=ADM.rows.find(function(y){return y.id===id});if(r)r.hasPw=true;render();toast('已重設主辦密碼')}else err.textContent='重設失敗'})}
 };
 
+/* ---------- 場地與自動排程 ---------- */
+function venueOf(t){var v=t.venue||{},cs=(v.courts&&v.courts.length)?v.courts.slice():['場地 1'];return{courts:cs,mode:v.mode==='group'&&t.groups?'group':'auto',groupCourts:v.groupCourts||{}}}
+function playCmp(a,b){return sortKey(a)-sortKey(b)||(a.idx||0)-(b.idx||0)||String(a.group||'').localeCompare(String(b.group||''))}
+function courtIdx(t,name){var i=venueOf(t).courts.indexOf(name);return i<0?999:i}
+function schedKey(t,m){var s=(t.sched||{})[m.id];return s&&(s.date||s.time)?(s.date||'9999-99-99')+' '+(s.time||'99:99'):null}
+function venueSummary(t){var V=venueOf(t);var h=V.courts.map(esc).join('、')+'（共 '+V.courts.length+' 個場地';
+ if(V.mode==='group')h+='，各組固定場地：'+t.groups.map(function(g){var c=V.groupCourts[g.name]||[];return g.name+' 組→'+(c.length?c.map(function(i){return esc(V.courts[i]||'?')}).join('/'):'任一')}).join('；');
+ else h+='，哪個場地有空就排';return h+'）'}
+function autoSchedule(t,opt){
+ var V=venueOf(t),C=V.courts.length;t.sched=t.sched||{};
+ var ms=t.matches.filter(function(m){var o=outcome(t,m);if(o.bye||o.skip||m.reset)return false;if(opt.keep&&t.sched[m.id]&&t.sched[m.id].time)return false;return true}).sort(playCmp);
+ var inSet={};ms.forEach(function(m){inSet[m.id]=1});
+ var deps=function(m){var d=[];[m.a,m.b].forEach(function(s){if(s&&(s.t==='W'||s.t==='L')&&inSet[s.m])d.push(s.m)});return d};
+ var people=function(m){var s=sides(t,m);return [s[0],s[1]].filter(function(x){return typeof x==='string'&&x!=='SKIP'})};
+ var allowed=function(m,c){if(V.mode!=='group'||m.stage!=='group')return true;var gc=V.groupCourts[m.group];return !gc||!gc.length||gc.indexOf(c)>=0};
+ var slotOf={},rem=ms.slice(),out=[],slot=0,prevBusy={},guard=0;
+ while(rem.length&&guard++<5000){
+  var busy={},placed=0,minKey=sortKey(rem[0]);
+  rem.forEach(function(m){minKey=Math.min(minKey,sortKey(m))});
+  for(var c=0;c<C;c++){var pick=-1;
+   for(var pass=0;pass<2&&pick<0;pass++){
+    for(var i=0;i<rem.length;i++){var m=rem[i];
+     if(!allowed(m,c))continue;
+     if(deps(m).some(function(id){return slotOf[id]===undefined||slotOf[id]>=slot}))continue;
+     var ps=people(m);if(ps.some(function(p){return busy[p]}))continue;
+     if(pass===0){if(sortKey(m)>minKey+1)break;if(opt.rest&&(ps.some(function(p){return prevBusy[p]})||deps(m).some(function(id){return slotOf[id]===slot-1})))continue}
+     pick=i;break}}
+   if(pick>=0){var mm=rem.splice(pick,1)[0];slotOf[mm.id]=slot;people(mm).forEach(function(p){busy[p]=1});out.push({m:mm,slot:slot,c:c});placed++}}
+  prevBusy=busy;slot++}
+ var toMin=function(s){var p=String(s).split(':');return Number(p[0])*60+Number(p[1]||0)},sM=toMin(opt.time),eM=toMin(opt.end||'23:59'),day=new Date(opt.date+'T00:00:00'),k=0,map=[];
+ for(var sl=0;sl<slot;sl++){if(k>0&&sM+(k+1)*opt.dur>eM){day=new Date(day.getTime()+864e5);k=0}
+  var mins=sM+k*opt.dur;map.push({date:day.getFullYear()+'-'+String(day.getMonth()+1).padStart(2,'0')+'-'+String(day.getDate()).padStart(2,'0'),time:String(Math.floor(mins/60)).padStart(2,'0')+':'+String(mins%60).padStart(2,'0')});k++}
+ out.forEach(function(x){t.sched[x.m.id]={date:map[x.slot].date,time:map[x.slot].time,court:V.courts[x.c]}});
+ return{count:out.length,slots:slot,days:map.length?1+Math.round((new Date(map[map.length-1].date)-new Date(map[0].date))/864e5):0,end:map.length?map[map.length-1]:null}}
+function openVenue(){var t=T(),V=venueOf(t);modalCtx={vd:{courts:V.courts.slice(),mode:V.mode,groupCourts:JSON.parse(JSON.stringify(V.groupCourts))},back:modalCtx.back};renderVenue()}
+function grabVenue(){var d=modalCtx.vd;if(!d)return;document.querySelectorAll('.vname').forEach(function(inp){d.courts[+inp.dataset.i]=inp.value});var mr=document.querySelector('input[name="vmode"]:checked');if(mr)d.mode=mr.value;
+ if(d.mode==='group'){var gc={};document.querySelectorAll('.vgc').forEach(function(cb){if(cb.checked)(gc[cb.dataset.g]=gc[cb.dataset.g]||[]).push(+cb.dataset.c)});d.groupCourts=gc}}
+function renderVenue(){var t=T(),d=modalCtx.vd,ctx=modalCtx;
+ var h='<h2>🏟 場地設定</h2><div class="muted">設定有幾個場地、場地名稱，以及比賽怎麼分配到各場地。自動排程會照這裡的設定。</div>'+
+ '<label class="f">場地數量</label><div class="row" style="flex-wrap:nowrap"><button class="ib" data-act="vStep" data-d="-1" style="width:44px;height:44px;font-size:20px">−</button><input class="inp" type="number" min="1" max="30" id="vn" value="'+d.courts.length+'" style="width:90px;text-align:center;font-size:18px"><button class="ib" data-act="vStep" data-d="1" style="width:44px;height:44px;font-size:20px">＋</button><span class="muted">同一時間可以同時進行幾場比賽</span></div>'+
+ '<label class="f">場地名稱 <button class="btn sm" data-act="vNames" data-p="az" style="margin-left:6px">A 場、B 場…</button><button class="btn sm" data-act="vNames" data-p="num">1 號場…</button><button class="btn sm" data-act="vNames" data-p="table">第 1 桌…</button></label><div class="vgrid">'+d.courts.map(function(c,i){return '<div class="vcell"><span class="sd">'+(i+1)+'</span><input class="inp vname" data-i="'+i+'" value="'+esc(c)+'" maxlength="20"></div>'}).join('')+'</div>';
+ if(t.groups){
+  h+='<label class="f">分組賽的場地分配</label><label class="check"><input type="radio" name="vmode" value="auto" '+(d.mode!=='group'?'checked':'')+' data-act="vMode">哪個場地有空就排（各組交叉使用所有場地）</label><label class="check"><input type="radio" name="vmode" value="group" '+(d.mode==='group'?'checked':'')+' data-act="vMode">每組固定在指定場地（例如 A 組都在 1 號場）</label>';
+  if(d.mode==='group'){h+='<div class="tblw" style="margin-top:10px"><table><thead><tr><th class="l">組別</th>'+d.courts.map(function(c){return '<th>'+esc(c||'?')+'</th>'}).join('')+'</tr></thead><tbody>'+t.groups.map(function(g){var gc=d.groupCourts[g.name]||[];return '<tr><td class="l"><b>'+g.name+' 組</b></td>'+d.courts.map(function(c,i){return '<td><input type="checkbox" class="vgc" data-g="'+g.name+'" data-c="'+i+'" '+(gc.indexOf(i)>=0?'checked':'')+' style="width:20px;height:20px;accent-color:var(--acc)"></td>'}).join('')+'</tr>'}).join('')+'</tbody></table></div><div class="muted" style="margin-top:6px">可以一組勾多個場地；沒勾的組別可用任何場地。淘汰賽階段一律使用所有場地。</div>'}
+ }else h+='<div class="note">比賽會依輪次順序，分配到當時有空的場地。</div>';
+ h+='<div class="err" id="verr"></div><div class="mfoot"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="vSave">儲存場地設定</button></div>';
+ openModal(h);modalCtx=ctx}
+function vResize(n){grabVenue();var d=modalCtx.vd;n=Math.max(1,Math.min(30,n||1));while(d.courts.length<n)d.courts.push(nextCourtName(d.courts));d.courts.length=n;
+ Object.keys(d.groupCourts).forEach(function(g){d.groupCourts[g]=d.groupCourts[g].filter(function(i){return i<n})});renderVenue()}
+function nextCourtName(cs){var n=cs.length+1,last=cs[cs.length-1]||'';
+ if(/^[A-Z] 場$/.test(last))return String.fromCharCode(64+Math.min(26,n))+' 場';if(/^\d+ 號場$/.test(last))return n+' 號場';if(/^第 \d+ 桌$/.test(last))return '第 '+n+' 桌';return '場地 '+n}
+function schedGrid(t,ms){
+ var V=venueOf(t),cd=codes(t),byDate={},extra=[],un=0;
+ ms.forEach(function(m){var s=(t.sched||{})[m.id];if(!s||!s.time){un++;return}var d=s.date||'';(byDate[d]=byDate[d]||[]).push(m);if(s.court&&V.courts.indexOf(s.court)<0&&extra.indexOf(s.court)<0)extra.push(s.court)});
+ var cols=V.courts.concat(extra),noCourt=ms.some(function(m){var s=(t.sched||{})[m.id];return s&&s.time&&!s.court});if(noCourt)cols.push('');
+ var h='';
+ Object.keys(byDate).sort().forEach(function(d){var list=byDate[d],times=[];list.forEach(function(m){var tm=t.sched[m.id].time;if(times.indexOf(tm)<0)times.push(tm)});times.sort();
+  h+='<div class="blabel"><span></span>'+(d?d.replace(/-/g,'/'):'未指定日期')+'</div><div class="tblw"><table class="sgrid"><thead><tr><th>時間</th>'+cols.map(function(c){return '<th>'+(c?esc(c):'未指定場地')+'</th>'}).join('')+'</tr></thead><tbody>'+
+  times.map(function(tm){return '<tr><td class="gt">'+tm+'</td>'+cols.map(function(c){var here=list.filter(function(m){var s=t.sched[m.id];return s.time===tm&&(s.court||'')===c});
+   return '<td>'+here.map(function(m){var s=sides(t,m),o=outcome(t,m),r=validRes(t,m),pl=playable(t,m),g=m.group?'g'+(m.group.charCodeAt(0)-65)%8:'';
+    return '<div class="gcell '+g+(o.done?' done':'')+'" '+(pl&&!ro()?'data-act="score" data-m="'+m.id+'"':'')+'><div class="gh">#'+cd[m.id]+' · '+esc(roundLabel(t,m))+'</div><div class="gv"><span class="'+(o.done&&o.w===s[0]?'wn':'')+'">'+pn(t,s[0])+'</span><b>'+(r?r.sa+':'+r.sb:'vs')+'</b><span class="'+(o.done&&o.w===s[1]?'wn':'')+'">'+pn(t,s[1])+'</span></div></div>'}).join('')+'</td>'}).join('')+'</tr>'}).join('')+'</tbody></table></div>'});
+ if(!h)h='<div class="empty">還沒有排定時間的比賽。按「⏱ 自動排程」一次排好。</div>';
+ if(un)h+='<div class="note">另有 '+un+' 場尚未排定時間。</div>';
+ return h}
+
 /* ---------- modals ---------- */
 function openModal(html){var keep=modalCtx;closeModal();modalCtx=keep;var ov=document.createElement('div');ov.className='ov';ov.id='ov';ov.innerHTML='<div class="modal">'+html+'</div>';ov.addEventListener('click',function(e){if(e.target===ov)closeModal()});document.body.appendChild(ov)}
 function closeModal(){var o=document.getElementById('ov');if(o)o.remove();modalCtx={}}
@@ -895,6 +975,7 @@ function openNew(){
  '<div id="n_opts"></div>'+
  '<label class="f">參賽者（隊伍、班級或個人，一行一個）<span id="n_cnt" class="muted" style="font-weight:400;margin-left:6px">0 位</span></label><textarea class="inp" id="n_ps" placeholder="一年一班&#10;一年二班&#10;一年三班&#10;一年四班"></textarea>'+
  '<label class="check"><input type="checkbox" id="n_shuf">隨機排列種子</label>'+
+ '<label class="f">場地數量 <span class="muted" style="font-weight:400">（名稱與分配方式之後可在「設定」修改）</span></label><input class="inp" type="number" min="1" max="30" id="n_courts" value="1" style="width:120px">'+
  (mode==='cloud'&&CLOUDCFG.requireCode?'<label class="f">🎫 建立碼（必填，向網站管理者索取）</label><input class="inp" id="n_code" autocomplete="off" style="text-transform:uppercase;font-family:var(--num);font-size:18px;letter-spacing:1px">':'')+(mode==='cloud'?'<div class="two"><div><label class="f">👑 主辦密碼（必填，至少 4 個字）</label><input class="inp" type="password" id="n_pw" autocomplete="new-password"></div><div><label class="f">再輸入一次</label><input class="inp" type="password" id="n_pw2" autocomplete="new-password"></div></div><div class="muted" style="margin-top:6px">在其他電腦或手機管理這個賽事時，用這組密碼登入。請記好，忘記就無法再管理。</div>':'')+
  '<div class="err" id="n_err"></div><div class="mfoot"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="create">建立賽事</button></div>');
  renderNewOpts()}
@@ -929,9 +1010,15 @@ function updPick(){var a=document.getElementById('sa'),b=document.getElementById
  else box.innerHTML=''}
 function openSched(mid){var t=T(),m=byId(t,mid),sc=(t.sched||{})[mid]||{},s=sides(t,m);
  modalCtx={mid:mid};
- openModal('<h2>比賽時間與場地</h2><div class="muted">#'+codes(t)[mid]+' · '+roundLabel(t,m)+'：'+pn(t,s[0])+' vs '+pn(t,s[1])+'</div><div class="two"><div><label class="f">日期</label><input class="inp" type="date" id="e_date" value="'+esc(sc.date||'')+'"></div><div><label class="f">時間</label><input class="inp" type="time" id="e_time" value="'+esc(sc.time||'')+'"></div></div><label class="f">場地</label><input class="inp" id="e_court" placeholder="例：A 場、視聽教室、第 3 桌" value="'+esc(sc.court||'')+'"><div class="mfoot"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="saveSched">儲存</button></div>')}
-function openAuto(){var d=new Date(Date.now()+864e5),ds=d.toISOString().slice(0,10);
- openModal('<h2>自動排程</h2><div class="muted">依輪次順序把比賽排進時段與場地，同一輪結束後才開始下一輪。</div><div class="two"><div><label class="f">開始日期</label><input class="inp" type="date" id="a_date" value="'+ds+'"></div><div><label class="f">開始時間</label><input class="inp" type="time" id="a_time" value="09:00"></div></div><div class="three"><div><label class="f">每場（分鐘）</label><input class="inp" type="number" min="5" id="a_dur" value="30"></div><div><label class="f">場地數</label><input class="inp" type="number" min="1" id="a_courts" value="2"></div><div><label class="f">場地名稱</label><input class="inp" id="a_pre" value="場地"></div></div><label class="f">每天最晚結束（超過就排到隔天）</label><input class="inp" type="time" id="a_end" value="17:00"><label class="check"><input type="checkbox" id="a_keep">保留已排定的比賽</label><div class="mfoot"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="runAuto">開始排程</button></div>')}
+ openModal('<h2>比賽時間與場地</h2><div class="muted">#'+codes(t)[mid]+' · '+roundLabel(t,m)+'：'+pn(t,s[0])+' vs '+pn(t,s[1])+'</div><div class="two"><div><label class="f">日期</label><input class="inp" type="date" id="e_date" value="'+esc(sc.date||'')+'"></div><div><label class="f">時間</label><input class="inp" type="time" id="e_time" value="'+esc(sc.time||'')+'"></div></div><label class="f">場地</label><input class="inp" id="e_court" list="courtList" placeholder="例：A 場、視聽教室、第 3 桌" value="'+esc(sc.court||'')+'"><datalist id="courtList">'+venueOf(t).courts.map(function(c){return '<option value="'+esc(c)+'">'}).join('')+'</datalist><div class="row" style="margin-top:8px;gap:6px">'+venueOf(t).courts.map(function(c){return '<button class="fchip" data-act="pickCourt" data-c="'+esc(c)+'">'+esc(c)+'</button>'}).join('')+'</div><div class="mfoot"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="saveSched">儲存</button></div>')}
+function openAuto(){var t=T(),d=new Date(Date.now()+864e5),ds=d.toISOString().slice(0,10),a=t.autoOpt||{};
+ openModal('<h2>⏱ 自動排程</h2><div class="muted" style="line-height:1.6">依輪次把比賽排進時段與場地。分組循環賽會各組交叉排（第 1 輪 A、B、C 組輪流，再排第 2 輪），同一位參賽者不會同時出現在兩個場地。</div>'+
+ '<div class="note" style="display:flex;gap:8px;align-items:center;justify-content:space-between"><span>🏟 '+venueSummary(t)+'</span>'+(canAdmin()?'<button class="btn sm" data-act="venue">修改場地</button>':'')+'</div>'+
+ '<div class="two"><div><label class="f">開始日期</label><input class="inp" type="date" id="a_date" value="'+esc(a.date||ds)+'"></div><div><label class="f">開始時間</label><input class="inp" type="time" id="a_time" value="'+esc(a.time||'09:00')+'"></div></div>'+
+ '<div class="two"><div><label class="f">每場（含換場，分鐘）</label><input class="inp" type="number" min="5" id="a_dur" value="'+(a.dur||30)+'"></div><div><label class="f">每天最晚結束</label><input class="inp" type="time" id="a_end" value="'+esc(a.end||'17:00')+'"></div></div>'+
+ '<label class="check"><input type="checkbox" id="a_rest" '+(a.rest===false?'':'checked')+'>同一位參賽者盡量不要連續兩場上場（讓選手休息）</label>'+
+ '<label class="check"><input type="checkbox" id="a_keep">保留已排定時間的比賽，只排剩下的</label>'+
+ '<div class="mfoot"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="runAuto">開始排程</button></div>')}
 function openPlayer(pid){var t=T(),p=pmap(t)[pid];if(!p)return;var cd=codes(t),W=0,D=0,L=0,rows='';
  t.matches.forEach(function(m){var s=sides(t,m);if(s[0]!==pid&&s[1]!==pid)return;var o=outcome(t,m);if(o.bye)return;var r=validRes(t,m),me=s[0]===pid?0:1,opp=s[1-me];
   var res='';if(o.done){if(o.w===pid){W++;res='<span class="chip win">勝</span>'}else if(o.l===pid){L++;res='<span class="chip" style="background:#fde8eb;color:#c81e3c">敗</span>'}else{D++;res='<span class="chip">和</span>'}}else res='<span class="chip">未賽</span>';
@@ -986,7 +1073,7 @@ var A={
   if(f==='groups'){if(names.length/o.groups<2){err.textContent='每組至少要 2 位參賽者，請減少組數';return}var minG=Math.floor(names.length/o.groups);if(o.adv>minG){err.textContent='晉級名額不能多於每組人數（'+minG+'）';return}}
   var npw=document.getElementById('n_pw');if(npw){if(npw.value.length<4){err.textContent='請設定主辦密碼（至少 4 個字）';return}if(npw.value!==document.getElementById('n_pw2').value){err.textContent='兩次輸入的主辦密碼不一樣';return}}
   var ncode=document.getElementById('n_code'),cv=ncode?ncode.value.trim().toUpperCase():'';
-  var finish=function(){var t=createT(o);if(npw&&npw.value)PENDPW[t.id]=npw.value;if(cv)PENDCODE[t.id]=cv;closeModal();save();go('t',t.id)};
+  var finish=function(){var t=createT(o);var nc=Math.max(1,Math.min(30,parseInt((document.getElementById('n_courts')||{}).value)||1));t.venue={courts:Array.from({length:nc},function(_,i){return nc>1?String.fromCharCode(65+Math.min(25,i))+' 場':'場地 1'}),mode:'auto',groupCourts:{}};if(npw&&npw.value)PENDPW[t.id]=npw.value;if(cv)PENDCODE[t.id]=cv;closeModal();save();go('t',t.id)};
   if(ncode){if(!cv){err.textContent='請輸入建立碼';return}err.textContent='檢查建立碼…';
    fetch('/api/t?checkcode='+encodeURIComponent(cv),{cache:'no-store'}).then(function(r){return r.json()}).then(function(j){if(j.ok)finish();else err.textContent='建立碼錯誤或已停用'}).catch(function(){err.textContent='無法連線，請稍後再試'});return}
   finish()},
@@ -1000,19 +1087,22 @@ var A={
   t.results[modalCtx.mid]={a:modalCtx.a,b:modalCtx.b,sa:sa,sb:sb,pick:pick,at:Date.now()};closeModal();save();toast('比分已更新')},
  clearScore:function(){var t=T();delete t.results[modalCtx.mid];closeModal();save()},
  editSched:function(el){openSched(el.dataset.m)},
+ pickCourt:function(el){document.getElementById('e_court').value=el.dataset.c},
  saveSched:function(){var t=T();t.sched=t.sched||{};t.sched[modalCtx.mid]={date:document.getElementById('e_date').value,time:document.getElementById('e_time').value,court:document.getElementById('e_court').value.trim()};closeModal();save()},
  autoSched:openAuto,
- runAuto:function(){var t=T(),date=document.getElementById('a_date').value,time=document.getElementById('a_time').value||'09:00',dur=Math.max(5,Number(document.getElementById('a_dur').value)||30),courts=Math.max(1,Number(document.getElementById('a_courts').value)||1),pre=document.getElementById('a_pre').value.trim()||'場地',end=document.getElementById('a_end').value||'23:59',keep=document.getElementById('a_keep').checked;
-  if(!date){toast('請選擇開始日期');return}
-  t.sched=t.sched||{};
-  var ms=t.matches.filter(function(m){var o=outcome(t,m);if(o.bye||o.skip)return false;if(m.reset)return false;if(keep&&t.sched[m.id]&&t.sched[m.id].time)return false;return true}).sort(function(a,b){return sortKey(a)-sortKey(b)||a.idx-b.idx});
-  var toMin=function(s){var p=s.split(':');return Number(p[0])*60+Number(p[1])},startM=toMin(time),endM=toMin(end),day=new Date(date+'T00:00:00'),cur=startM,slot=0,lastKey=null;
-  ms.forEach(function(m){var k=sortKey(m);if(lastKey!==null&&k!==lastKey&&slot>0){cur+=dur;slot=0}lastKey=k;
-   if(cur+dur>endM&&cur>startM){day=new Date(day.getTime()+864e5);cur=startM;slot=0}
-   var ds=day.getFullYear()+'-'+String(day.getMonth()+1).padStart(2,'0')+'-'+String(day.getDate()).padStart(2,'0');
-   t.sched[m.id]={date:ds,time:String(Math.floor(cur/60)).padStart(2,'0')+':'+String(cur%60).padStart(2,'0'),court:courts>1?pre+' '+(slot+1):pre};
-   slot++;if(slot>=courts){slot=0;cur+=dur}});
-  closeModal();save();toast('已排定 '+ms.length+' 場比賽')},
+ runAuto:function(){var t=T(),g=function(id){return document.getElementById(id)},opt={date:g('a_date').value,time:g('a_time').value||'09:00',dur:Math.max(5,Number(g('a_dur').value)||30),end:g('a_end').value||'23:59',rest:g('a_rest').checked,keep:g('a_keep').checked};
+  if(!opt.date){toast('請選擇開始日期');return}
+  var r=autoSchedule(t,opt);if(canAdmin())t.autoOpt={date:opt.date,time:opt.time,dur:opt.dur,end:opt.end,rest:opt.rest};
+  closeModal();ui.sview='grid';save();toast('已排定 '+r.count+' 場'+(r.end?'，'+(r.days>1?'共 '+r.days+' 天，':'')+'最後一個時段 '+r.end.time:''))},
+ venue:function(){if(!canAdmin())return;openVenue()},
+ vStep:function(el){var n=document.getElementById('vn');vResize((+n.value||1)+Number(el.dataset.d))},
+ vNames:function(el){grabVenue();var d=modalCtx.vd,p=el.dataset.p;d.courts=d.courts.map(function(_,i){return p==='az'?String.fromCharCode(65+Math.min(25,i))+' 場':p==='num'?(i+1)+' 號場':'第 '+(i+1)+' 桌'});renderVenue()},
+ vMode:function(el){grabVenue();var d=modalCtx.vd;d.mode=el.value;if(d.mode==='group'&&!Object.keys(d.groupCourts).length){var t=T();t.groups.forEach(function(gr,i){d.groupCourts[gr.name]=[i%d.courts.length]})}renderVenue()},
+ vSave:function(){grabVenue();var t=T(),d=modalCtx.vd,names=d.courts.map(function(c,i){return String(c||'').trim()||('場地 '+(i+1))});
+  if(names.some(function(n,i){return names.indexOf(n)!==i})){document.getElementById('verr').textContent='場地名稱不能重複';return}
+  var gc={};if(d.mode==='group')Object.keys(d.groupCourts).forEach(function(k){var v=d.groupCourts[k].filter(function(i){return i<names.length});if(v.length)gc[k]=v});
+  t.venue={courts:names,mode:d.mode==='group'&&t.groups?'group':'auto',groupCourts:gc};closeModal();save();toast('場地設定已儲存')},
+ sview:function(el){ui.sview=el.dataset.v;render()},
  filter:function(el){ui.filter=el.dataset.f;render()},
  player:function(el){openPlayer(el.dataset.p)},
  swissNext:function(){var t=T();swissNext(t);save();toast('已產生新一輪配對')},
@@ -1093,7 +1183,7 @@ document.addEventListener('input',function(e){
  if(e.target.id==='n_sport'){newCfg.sport=e.target.value;var nc=document.getElementById('n_custom');if(nc){nc.style.display=e.target.value==='__custom'?'block':'none';if(e.target.value==='__custom')nc.focus()}}
  if(e.target.id==='admq'){ADM.q=e.target.value;var ps=e.target.selectionStart;render();var aq=document.getElementById('admq');if(aq){aq.focus();try{aq.setSelectionRange(ps,ps)}catch(x){}}}
  if(e.target.id==='q'){ui.q=e.target.value;var pos=e.target.selectionStart;render();var q=document.getElementById('q');if(q){q.focus();try{q.setSelectionRange(pos,pos)}catch(x){}}}});
-document.addEventListener('change',function(e){if(e.target.classList.contains('pname')){var t=T(),p=pmap(t)[e.target.dataset.pid],v=e.target.value.trim();if(p&&v&&v!==p.name){p.name=v;save()}}});
+document.addEventListener('change',function(e){if(e.target.id==='vn'){vResize(+e.target.value);return}if(e.target.classList.contains('pname')){var t=T(),p=pmap(t)[e.target.dataset.pid],v=e.target.value.trim();if(p&&v&&v!==p.name){p.name=v;save()}}});
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(document.getElementById('ov'))closeModal();else if(ui.tv)closeTV()}if(e.key==='Enter'&&e.target.id==='admpw'){var ab=document.querySelector('[data-act="admLogin"]');if(ab)ADMA.admLogin(ab)}
  if(e.key==='Enter'&&e.target.id==='lpw'){var lb=document.querySelector('[data-act="pwLoginOk"]');if(lb)A.pwLoginOk(lb)}
  if(e.key==='Enter'&&document.getElementById('sa')&&(e.target.id==='sa'||e.target.id==='sb'))A.saveScore()});

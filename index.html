@@ -898,7 +898,8 @@ var ADMA={
 
 /* ---------- 場地與自動排程 ---------- */
 function venueOf(t){var v=t.venue||{},cs=(v.courts&&v.courts.length)?v.courts.slice():['場地 1'];return{courts:cs,mode:v.mode==='group'&&t.groups?'group':'auto',groupCourts:v.groupCourts||{}}}
-function playCmp(a,b){return sortKey(a)-sortKey(b)||(a.idx||0)-(b.idx||0)||String(a.group||'').localeCompare(String(b.group||''))}
+// 播放順序：同一輪中，一組的整輪比賽排完再換下一組（A 組第 1 輪 → B 組第 1 輪 → C 組第 1 輪 → A 組第 2 輪…）
+function playCmp(a,b){return sortKey(a)-sortKey(b)||String(a.group||'').localeCompare(String(b.group||''))||(a.idx||0)-(b.idx||0)}
 function courtIdx(t,name){var i=venueOf(t).courts.indexOf(name);return i<0?999:i}
 function schedKey(t,m){var s=(t.sched||{})[m.id];return s&&(s.date||s.time)?(s.date||'9999-99-99')+' '+(s.time||'99:99'):null}
 function venueSummary(t){var V=venueOf(t);var h=V.courts.map(esc).join('、')+'（共 '+V.courts.length+' 個場地';
@@ -1012,7 +1013,7 @@ function openSched(mid){var t=T(),m=byId(t,mid),sc=(t.sched||{})[mid]||{},s=side
  modalCtx={mid:mid};
  openModal('<h2>比賽時間與場地</h2><div class="muted">#'+codes(t)[mid]+' · '+roundLabel(t,m)+'：'+pn(t,s[0])+' vs '+pn(t,s[1])+'</div><div class="two"><div><label class="f">日期</label><input class="inp" type="date" id="e_date" value="'+esc(sc.date||'')+'"></div><div><label class="f">時間</label><input class="inp" type="time" id="e_time" value="'+esc(sc.time||'')+'"></div></div><label class="f">場地</label><input class="inp" id="e_court" list="courtList" placeholder="例：A 場、視聽教室、第 3 桌" value="'+esc(sc.court||'')+'"><datalist id="courtList">'+venueOf(t).courts.map(function(c){return '<option value="'+esc(c)+'">'}).join('')+'</datalist><div class="row" style="margin-top:8px;gap:6px">'+venueOf(t).courts.map(function(c){return '<button class="fchip" data-act="pickCourt" data-c="'+esc(c)+'">'+esc(c)+'</button>'}).join('')+'</div><div class="mfoot"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="saveSched">儲存</button></div>')}
 function openAuto(){var t=T(),d=new Date(Date.now()+864e5),ds=d.toISOString().slice(0,10),a=t.autoOpt||{};
- openModal('<h2>⏱ 自動排程</h2><div class="muted" style="line-height:1.6">依輪次把比賽排進時段與場地。分組循環賽會各組交叉排（第 1 輪 A、B、C 組輪流，再排第 2 輪），同一位參賽者不會同時出現在兩個場地。</div>'+
+ openModal('<h2>⏱ 自動排程</h2><div class="muted" style="line-height:1.6">依輪次把比賽排進時段與場地。分組循環賽會各組交叉排（A 組第 1 輪 → B 組第 1 輪 → C 組第 1 輪 → A 組第 2 輪…），同一位參賽者不會同時出現在兩個場地。</div>'+
  '<div class="note" style="display:flex;gap:8px;align-items:center;justify-content:space-between"><span>🏟 '+venueSummary(t)+'</span>'+(canAdmin()?'<button class="btn sm" data-act="venue">修改場地</button>':'')+'</div>'+
  '<div class="two"><div><label class="f">開始日期</label><input class="inp" type="date" id="a_date" value="'+esc(a.date||ds)+'"></div><div><label class="f">開始時間</label><input class="inp" type="time" id="a_time" value="'+esc(a.time||'09:00')+'"></div></div>'+
  '<div class="two"><div><label class="f">每場（含換場，分鐘）</label><input class="inp" type="number" min="5" id="a_dur" value="'+(a.dur||30)+'"></div><div><label class="f">每天最晚結束</label><input class="inp" type="time" id="a_end" value="'+esc(a.end||'17:00')+'"></div></div>'+
